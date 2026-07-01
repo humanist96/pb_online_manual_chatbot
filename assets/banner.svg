@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="PowerBASE 계좌 매뉴얼 RAG 챗봇">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b202a"/>
+      <stop offset="0.55" stop-color="#14171e"/>
+      <stop offset="1" stop-color="#0f1218"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9a3d"/>
+      <stop offset="0.6" stop-color="#f5821f"/>
+      <stop offset="1" stop-color="#e4670a"/>
+    </linearGradient>
+    <linearGradient id="steelrule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5821f" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#f5821f" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#f5821f" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+  <!-- 미세한 세로 서랍 홈(원장 캐비닛 모티프) -->
+  <g stroke="#ffffff" stroke-opacity="0.03">
+    <line x1="150" y1="0" x2="150" y2="300"/><line x1="1050" y1="0" x2="1050" y2="300"/>
+  </g>
+  <!-- 오렌지 글로우 -->
+  <circle cx="1010" cy="70" r="120" fill="#f5821f" opacity="0.10" filter="url(#soft)"/>
+
+  <!-- 좌측 심볼: 원장 카드 + 검색 렌즈 -->
+  <g transform="translate(74,96)">
+    <rect x="0" y="0" width="86" height="108" rx="10" fill="#232a35" stroke="#3a4149"/>
+    <rect x="0" y="0" width="86" height="26" rx="10" fill="#2b323d"/>
+    <line x1="14" y1="46" x2="72" y2="46" stroke="#454e5b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="14" y1="62" x2="60" y2="62" stroke="#454e5b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="14" y1="78" x2="66" y2="78" stroke="#454e5b" stroke-width="4" stroke-linecap="round"/>
+    <!-- 검색 렌즈 -->
+    <circle cx="70" cy="86" r="22" fill="none" stroke="url(#orange)" stroke-width="7"/>
+    <line x1="86" y1="102" x2="104" y2="120" stroke="url(#orange)" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- 타이틀 -->
+  <g transform="translate(214,0)" font-family="'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+    <text x="0" y="112" fill="#ffffff" font-size="46" font-weight="800" letter-spacing="-0.5">PowerBASE 계좌 매뉴얼</text>
+    <text x="0" y="162" fill="url(#orange)" font-size="46" font-weight="800" letter-spacing="-0.5">RAG Q&amp;A 챗봇</text>
+    <rect x="2" y="182" width="360" height="3" rx="1.5" fill="url(#steelrule)"/>
+    <text x="0" y="214" fill="#aeb6c2" font-size="20" font-weight="500">사내 원장시스템 매뉴얼을 자연어로 질문 · 근거(출처) 포함 답변</text>
+    <text x="0" y="244" fill="#7f8aa0" font-family="ui-monospace,'Cascadia Code',monospace" font-size="15" letter-spacing="0.5">100% Local · Offline · Open-Source RAG</text>
+  </g>
+
+  <!-- 우측 지표 카드 -->
+  <g transform="translate(966,104)" font-family="ui-monospace,'Cascadia Code',monospace">
+    <g>
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="#1e2430" stroke="#333c4b"/>
+      <text x="16" y="18" fill="#f5821f" font-size="18" font-weight="700">356</text>
+      <text x="16" y="33" fill="#7f8aa0" font-size="10" letter-spacing="1.5">화면 SCREENS</text>
+    </g>
+    <g transform="translate(0,50)">
+      <rect x="0" y="0" width="150" height="40" rx="8" fill="#1e2430" stroke="#333c4b"/>
+      <text x="16" y="18" fill="#f5821f" font-size="18" font-weight="700">4,443</text>
+      <text x="16" y="33" fill="#7f8aa0" font-size="10" letter-spacing="1.5">청크 CHUNKS</text>
+    </g>
+  </g>
+</svg>

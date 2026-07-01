@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600" viewBox="0 0 1000 600" role="img" aria-label="검색품질 QA 콘솔 미리보기">
+  <defs>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/>
+    </linearGradient>
+    <style>
+      .k{font-family:'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+      .m{font-family:ui-monospace,'Cascadia Code',monospace}
+    </style>
+  </defs>
+
+  <!-- 캔버스 -->
+  <rect width="1000" height="600" fill="#eef0f4"/>
+  <rect x="0" y="0" width="1000" height="600" fill="#ffffff"/>
+
+  <!-- 헤더 -->
+  <rect x="0" y="0" width="1000" height="54" fill="#ffffff"/>
+  <line x1="0" y1="54" x2="1000" y2="54" stroke="#e5e8ed"/>
+  <circle cx="34" cy="27" r="6" fill="#f5821f"/>
+  <text x="50" y="26" class="k" font-size="16" font-weight="700" fill="#3a4149">kosc<tspan fill="#f5821f">o</tspan>m</text>
+  <line x1="118" y1="15" x2="118" y2="39" stroke="#d8dce3"/>
+  <text x="132" y="24" class="k" font-size="13" font-weight="700" fill="#14171b">PB 챗봇 · QnA 어시스트</text>
+  <text x="132" y="40" class="k" font-size="10.5" fill="#7a828e">PowerBASE · 계좌 매뉴얼 · 검색품질 QA</text>
+  <g class="m">
+    <rect x="800" y="14" width="60" height="28" rx="6" fill="#f5f6f8" stroke="#e5e8ed"/>
+    <text x="812" y="27" font-size="12" fill="#14171b">4,443</text><text x="812" y="37" font-size="7" fill="#a0a7b2" letter-spacing="1">청크</text>
+    <rect x="866" y="14" width="118" height="28" rx="6" fill="#f5f6f8" stroke="#e5e8ed"/>
+    <text x="878" y="27" font-size="11" fill="#14171b">ko-sroberta</text><text x="878" y="37" font-size="7" fill="#a0a7b2" letter-spacing="1">임베딩 768d</text>
+  </g>
+
+  <!-- 좌측 컨트롤 레일 -->
+  <rect x="0" y="54" width="230" height="546" fill="#f5f6f8"/>
+  <line x1="230" y1="54" x2="230" y2="600" stroke="#e5e8ed"/>
+  <text x="24" y="88" class="m" font-size="9" letter-spacing="2" fill="#a0a7b2">질의어</text>
+  <rect x="24" y="96" width="182" height="58" rx="8" fill="#ffffff" stroke="#d8dce3"/>
+  <text x="36" y="120" class="k" font-size="12" fill="#2b2f36">우편통보 사절 등록은</text>
+  <text x="36" y="138" class="k" font-size="12" fill="#2b2f36">어디서 하나요?</text>
+  <rect x="24" y="162" width="182" height="38" rx="8" fill="url(#orange)"/>
+  <text x="115" y="186" class="k" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">답변 생성 ▸</text>
+  <!-- α 슬라이더 -->
+  <text x="24" y="232" class="m" font-size="9" letter-spacing="2" fill="#a0a7b2">혼합 가중치 α</text>
+  <text x="206" y="232" class="m" font-size="12" font-weight="700" fill="#e4670a" text-anchor="end">0.50</text>
+  <rect x="24" y="242" width="182" height="4" rx="2" fill="#e5e8ed"/>
+  <circle cx="115" cy="244" r="7" fill="#f5821f"/>
+  <text x="24" y="262" class="m" font-size="8" fill="#a0a7b2">BM25</text>
+  <text x="206" y="262" class="m" font-size="8" fill="#a0a7b2" text-anchor="end">DENSE</text>
+  <!-- 유형 필터 -->
+  <text x="24" y="298" class="m" font-size="9" letter-spacing="2" fill="#a0a7b2">청크 유형 필터</text>
+  <g class="k" font-size="12" fill="#4a515b">
+    <rect x="26" y="308" width="12" height="12" rx="3" fill="#2c6ea8"/><text x="46" y="318">화면개요</text>
+    <rect x="26" y="330" width="12" height="12" rx="3" fill="#c8781a"/><text x="46" y="340">화면설명</text>
+    <rect x="26" y="352" width="12" height="12" rx="3" fill="#2e8b6e"/><text x="46" y="362">용어찾기</text>
+    <rect x="26" y="374" width="12" height="12" rx="3" fill="#6a4a86"/><text x="46" y="384">관련화면</text>
+    <rect x="26" y="396" width="12" height="12" rx="3" fill="#e4670a"/><text x="46" y="406">질문보기</text>
+  </g>
+
+  <!-- 상단: 답변 챗봇 창 -->
+  <g transform="translate(258,78)">
+    <rect x="0" y="0" width="710" height="196" rx="14" fill="#ffffff" stroke="#e5e8ed"/>
+    <!-- head -->
+    <rect x="0" y="0" width="710" height="44" rx="14" fill="#ffffff"/>
+    <line x1="0" y1="44" x2="710" y2="44" stroke="#e5e8ed"/>
+    <rect x="16" y="10" width="24" height="24" rx="6" fill="url(#orange)"/>
+    <text x="28" y="27" class="m" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+    <text x="50" y="27" class="k" font-size="13" font-weight="700" fill="#14171b">최적화 답변</text>
+    <rect x="596" y="12" width="100" height="20" rx="10" fill="#fff3e8" stroke="#f7ce9e"/>
+    <text x="646" y="26" class="m" font-size="9.5" fill="#e4670a" text-anchor="middle">AI 생성 · SONNET</text>
+    <!-- 질문 말풍선 -->
+    <rect x="16" y="56" width="250" height="26" rx="9" fill="#3a4149"/>
+    <text x="30" y="73" class="k" font-size="12" fill="#fff">우편통보 사절 등록은 어디서 하나요?</text>
+    <!-- 답변 -->
+    <g class="k" font-size="13.5" fill="#2b2f36">
+      <text x="16" y="108">우편통보 사절 등록/해지는 <tspan font-weight="700" fill="#14171b">[2406] 우편통보사절등록/해지</tspan> 화면에서</text>
+      <text x="16" y="130">처리합니다 <tspan class="m" font-size="11" font-weight="700" fill="#e4670a">[S1]</tspan><tspan class="m" font-size="11" font-weight="700" fill="#e4670a"> [S3]</tspan>. 등록 내역은 <tspan font-weight="700" fill="#14171b">[2452] 지점 사절원등록계좌</tspan></text>
+      <text x="16" y="152">화면에서 조회할 수 있습니다 <tspan class="m" font-size="11" font-weight="700" fill="#e4670a">[S1]</tspan><tspan class="m" font-size="11" font-weight="700" fill="#e4670a"> [S2]</tspan>.</text>
+    </g>
+    <line x1="16" y1="168" x2="694" y2="168" stroke="#e5e8ed" stroke-dasharray="3 3"/>
+    <text x="16" y="185" class="m" font-size="10.5" fill="#7a828e">검색 <tspan fill="#e4670a" font-weight="700">103</tspan>ms · 생성 <tspan fill="#e4670a" font-weight="700">6.8</tspan>s · 근거 <tspan fill="#e4670a" font-weight="700">4</tspan>건</text>
+  </g>
+
+  <!-- 근거 라벨 -->
+  <g transform="translate(258,290)">
+    <text x="0" y="10" class="m" font-size="10" letter-spacing="3" fill="#a0a7b2">검색 근거</text>
+    <line x1="66" y1="6" x2="710" y2="6" stroke="#e5e8ed"/>
+  </g>
+
+  <!-- 근거 슬립 -->
+  <g transform="translate(258,304)">
+    <rect x="0" y="0" width="710" height="120" rx="10" fill="#ffffff" stroke="#e5e8ed"/>
+    <!-- rank tab -->
+    <rect x="0" y="0" width="44" height="120" rx="10" fill="#f5f6f8"/>
+    <rect x="0" y="0" width="3" height="120" fill="#f5821f"/>
+    <text x="22" y="30" class="m" font-size="17" font-weight="700" fill="#14171b" text-anchor="middle">01</text>
+    <text x="22" y="42" class="m" font-size="7" fill="#a0a7b2" text-anchor="middle">RANK</text>
+    <!-- body -->
+    <rect x="58" y="16" width="66" height="18" rx="9" fill="#c8781a"/>
+    <text x="91" y="29" class="k" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">화면설명</text>
+    <!-- dense/sparse bars -->
+    <text x="470" y="22" class="m" font-size="8" fill="#a0a7b2" text-anchor="end">DENSE</text>
+    <rect x="478" y="16" width="120" height="6" rx="3" fill="#eef0f4"/><rect x="478" y="16" width="104" height="6" rx="3" fill="url(#orange)"/>
+    <text x="470" y="34" class="m" font-size="8" fill="#a0a7b2" text-anchor="end">SPARSE</text>
+    <rect x="478" y="28" width="120" height="6" rx="3" fill="#eef0f4"/><rect x="478" y="28" width="120" height="6" rx="3" fill="#5b636d"/>
+    <text x="694" y="30" class="m" font-size="15" font-weight="700" fill="#e4670a" text-anchor="end">1.00</text>
+    <!-- breadcrumb trail -->
+    <g class="k" font-size="12">
+      <text x="58" y="58" fill="#22262e" font-weight="600">지점 사절원등록계좌 현황</text>
+      <text x="212" y="58" fill="#d8dce3" class="m">›</text>
+      <text x="224" y="58" fill="#5d5645">관련화면</text>
+      <text x="286" y="58" fill="#d8dce3" class="m">›</text>
+      <rect x="298" y="46" width="188" height="17" rx="5" fill="#fff3e8" stroke="#f7ce9e"/>
+      <text x="306" y="58" fill="#e4670a" font-weight="600">◉ 우편통보사절등록/해지[2406]</text>
+    </g>
+    <text x="58" y="82" class="k" font-size="13" fill="#2a2e36">우편통보 사절원 등록/해지 처리를 하는 화면</text>
+    <line x1="58" y1="96" x2="694" y2="96" stroke="#e5e8ed" stroke-dasharray="3 3"/>
+    <g class="m" font-size="11">
+      <text x="58" y="112" fill="#14171b" font-weight="600">ACA70100</text>
+      <text x="130" y="112" fill="#e4670a">[2406]</text>
+      <text x="694" y="112" class="k" fill="#e4670a" text-anchor="end">원문 매뉴얼 ↗</text>
+    </g>
+  </g>
+</svg>
