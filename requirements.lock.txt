@@ -1,0 +1,11 @@
+# 고정 버전 (재현 가능한 배포용). torch 는 CPU 휠 인덱스 필요:
+#   pip install -r requirements.lock.txt --extra-index-url https://download.pytorch.org/whl/cpu
+beautifulsoup4==4.15.0
+lxml==6.1.1
+openpyxl==3.1.5
+sentence-transformers==5.6.0
+faiss-cpu==1.14.3
+rank-bm25==0.2.2
+torch==2.12.1+cpu
+numpy==2.4.4
+transformers==5.12.1

@@ -136,7 +136,66 @@ PORT=8000 .venv/bin/python src/webapp.py   # → http://localhost:8000
 
 ---
 
-## 5. 디렉터리 구조
+## 5. 리눅스 서버 배포 (프로덕션)
+
+일반 리눅스 서버(Ubuntu/Debian/RHEL 등, x86_64)에 **3단계**로 배포합니다.
+root/sudo 없이 사용자 홈에서 동작하며, 색인 빌드만 사내망 접근이 필요합니다.
+
+### 방식 A — 스크립트 + systemd (권장)
+
+```bash
+git clone https://github.com/humanist96/pb_online_manual_chatbot.git
+cd pb_online_manual_chatbot
+
+bash deploy/install.sh     # ① 파이썬3.12 venv + 의존성 (uv 자동 설치)
+bash deploy/build.sh       # ② 색인 빌드 (사내망; 최초 1회 모델 ~440MB 다운로드)
+bash deploy/run.sh         # ③ 실행 → http://<서버IP>:8000
+```
+
+상시 실행(부팅 자동 시작·크래시 자동 재시작)은 systemd 등록:
+
+```bash
+# deploy/pb-chatbot.service 의 User / WorkingDirectory 수정 후
+sudo cp deploy/pb-chatbot.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now pb-chatbot
+systemctl status pb-chatbot          # 상태
+journalctl -u pb-chatbot -f          # 로그
+```
+
+`make install && make build && make run` 으로도 동일하게 실행됩니다.
+
+### 방식 B — Docker
+
+```bash
+# 색인(data/)은 이미지에 포함하지 않고 볼륨으로 주입 (사내 데이터 보호)
+bash deploy/build.sh                 # 호스트에서 data/ 준비 (또는 기존 data/ 복사)
+docker compose up -d                 # → http://<서버IP>:8000
+docker compose logs -f chatbot
+```
+
+- 이미지에는 **코드만** 포함, `./data`(색인)·HF 모델 캐시는 볼륨 마운트
+- 폐쇄망 자체완결 답변이 필요하면 `docker-compose.yml`의 **ollama 서비스** 주석을 해제
+  (`docker compose exec ollama ollama pull qwen2.5:3b-instruct`)
+
+### 배포 구성 파일
+
+| 파일 | 용도 |
+|---|---|
+| `deploy/install.sh` | venv + 의존성 부트스트랩 |
+| `deploy/build.sh` | 수집→청크→색인 (한 번에) |
+| `deploy/run.sh` | 서버 실행(오프라인 기본) |
+| `deploy/pb-chatbot.service` | systemd 유닛(자동 재시작) |
+| `Dockerfile` · `docker-compose.yml` | 컨테이너 배포 |
+| `requirements.lock.txt` | 고정 버전(재현 설치) |
+| `Makefile` | `make install/build/run/docker-up` |
+
+### 방화벽 / 접근
+- 서버는 `HOST=0.0.0.0 PORT=8000`(기본) 바인딩 → `PORT`/`HOST` 환경변수로 변경
+- 사내 다수 사용자 공개 시 앞단에 **nginx 리버스 프록시**(TLS·인증) 권장
+
+---
+
+## 6. 디렉터리 구조
 
 ```
 src/
@@ -156,7 +215,7 @@ data/             (gitignore) html·xlsx·chunks·index — 재생성 대상
 
 ---
 
-## 6. 설정 (환경변수)
+## 7. 설정 (환경변수)
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
@@ -169,7 +228,7 @@ data/             (gitignore) html·xlsx·chunks·index — 재생성 대상
 
 ---
 
-## 7. 로드맵 (품질·사용성 개선)
+## 8. 로드맵 (품질·사용성 개선)
 
 측정된 데이터 품질 이슈(보일러플레이트 중복, related 과매칭, 제너릭 라벨)를 기준으로:
 데이터 정제 → 답변 스트리밍(SSE) → 로컬 리랭커(`bge-reranker-v2-m3`) → 임베딩 업그레이드 →

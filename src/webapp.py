@@ -31,6 +31,7 @@ from rag_common import embed, tokenize_ko, INDEX_DIR
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
 # 답변 LLM 백엔드: claude(로컬 Claude Code CLI) | ollama | none(추출-합성)
@@ -268,8 +269,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    srv = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"[webapp] 원장 검색 콘솔 → http://localhost:{PORT}", flush=True)
+    srv = ThreadingHTTPServer((HOST, PORT), Handler)
+    print(f"[webapp] 원장 검색 콘솔 → http://{HOST}:{PORT}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

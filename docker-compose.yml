@@ -1,0 +1,42 @@
+# PowerBASE 계좌 매뉴얼 RAG 챗봇 — Docker Compose
+#
+#   색인 빌드(최초/갱신, 사내망):
+#     docker compose run --rm chatbot python src/build_index.py     # 청크가 있을 때
+#     또는 호스트에서 deploy/build.sh 로 data/ 준비 후 아래 up
+#
+#   실행:  docker compose up -d          → http://<서버IP>:8000
+#   로그:  docker compose logs -f chatbot
+#
+services:
+  chatbot:
+    build: .
+    image: pb-chatbot:latest
+    ports:
+      - "8000:8000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      # 로컬 LLM(아래 ollama 서비스) 사용 시:
+      # LLM_BACKEND: "ollama"
+      # LLM_MODEL: "qwen2.5:3b-instruct"
+      # OLLAMA_HOST: "http://ollama:11434"
+    volumes:
+      - ./data:/app/data                 # 색인(사내 데이터, 이미지 미포함)
+      - hf-cache:/root/.cache/huggingface # 임베딩 모델 캐시
+    restart: unless-stopped
+    # depends_on: [ollama]
+
+  # 로컬 LLM 서빙(선택) — 폐쇄망 자체완결 답변용.
+  # 활성화하려면 위 chatbot 환경변수/ depends_on 주석을 해제하고 아래 블록 사용.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports: ["11434:11434"]
+  #   volumes: [ollama:/root/.ollama]
+  #   restart: unless-stopped
+  #   # 최초 1회: docker compose exec ollama ollama pull qwen2.5:3b-instruct
+
+volumes:
+  hf-cache:
+  # ollama:

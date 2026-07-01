@@ -1,0 +1,32 @@
+# PowerBASE 계좌 매뉴얼 RAG 챗봇 — systemd 유닛
+#
+# 설치:
+#   1) 경로/사용자 수정 (User, WorkingDirectory)
+#   2) sudo cp deploy/pb-chatbot.service /etc/systemd/system/
+#   3) sudo systemctl daemon-reload && sudo systemctl enable --now pb-chatbot
+#   4) 상태:  systemctl status pb-chatbot   로그:  journalctl -u pb-chatbot -f
+#
+[Unit]
+Description=PowerBASE Account Manual RAG Chatbot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pbchat
+WorkingDirectory=/opt/pb_online_manual_chatbot
+Environment=HOST=0.0.0.0
+Environment=PORT=8000
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+# 로컬 LLM(Ollama) 사용 시 주석 해제:
+# Environment=LLM_BACKEND=ollama
+# Environment=LLM_MODEL=qwen2.5:3b-instruct
+ExecStart=/opt/pb_online_manual_chatbot/.venv/bin/python src/webapp.py
+Restart=on-failure
+RestartSec=3
+# 리소스 보호(선택)
+# MemoryMax=6G
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.claude/
+data/html/
+data/xlsx/
+data/index/
+data/*.jsonl
+*.pdf
+*.xlsx
+.env
+.DS_Store
