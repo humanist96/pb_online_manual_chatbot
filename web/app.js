@@ -20,6 +20,8 @@ const LS_KEY = "pbdesk.v1";
 /* ── 상태 ── */
 const S = {
   qa: false,
+  rerank: true,        // 정밀 게이트(리랭커) 사용 여부 — 컴포저 '정밀' 토글
+  tauTouched: false,   // QA 슬라이더로 τ를 직접 만졌는지 (아니면 서버 기본값 추종)
   alpha: 0.5, topk: 5, tau: 0.5, gateMode: "cosine",
   types: new Set(Object.keys(TYPES)),
   samples: [],
@@ -39,6 +41,7 @@ function loadStore() {
     const d = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
     S.sessions = Array.isArray(d.sessions) ? d.sessions : [];
     S.qa = !!d.qa;
+    S.rerank = d.rerank !== false;
     if (d.navClosed) document.body.classList.add("nav-closed");
     // 중단된 턴은 오류로 정리
     for (const ss of S.sessions)
@@ -52,6 +55,7 @@ function saveStore() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       sessions: S.sessions.slice(0, 30),
       qa: S.qa,
+      rerank: S.rerank,
       navClosed: document.body.classList.contains("nav-closed"),
     }));
   } catch { /* 저장소 초과 시 조용히 무시 */ }
@@ -403,9 +407,18 @@ async function getJSON(url) {
 }
 function buildParams(q) {
   return new URLSearchParams({
-    q, alpha: S.alpha, topk: S.topk, tau: S.tau,
+    q, alpha: S.alpha, topk: S.topk,
+    tau: S.tauTouched ? S.tau : "",          // 빈 값 → 서버가 게이트 모드별 보정값 사용
+    rerank: S.rerank ? "1" : "0",
     types: S.types.size === Object.keys(TYPES).length ? "" : [...S.types].join(","),
   });
+}
+/* 서버가 결정한 τ(게이트 모드별 보정값)를 화면에 반영 — 사용자가 직접 만지기 전까지 */
+function syncTau(gate) {
+  if (!gate || S.tauTouched) return;
+  S.tau = +gate.tau; S.gateMode = gate.mode;
+  $("#tau").value = S.tau; $("#tau-v").textContent = S.tau.toFixed(2);
+  $("#qa-gatemode").textContent = "게이트: " + (gate.mode === "rerank" ? "리랭커" : "코사인");
 }
 async function ask(q) {
   q = (q || "").trim();
@@ -431,6 +444,7 @@ async function ask(q) {
   try {
     const s = await getJSON("/api/search?" + params);           // 1단: 근거 선노출
     turn.hits = trimHits(s.hits); turn.gate = s.gate; turn.search_ms = s.elapsed_ms;
+    syncTau(s.gate);
     turn.state = "writing";
     updateTurn(turn); renderEvidence(turn); scrollBottom();
 
@@ -578,6 +592,13 @@ qEl.addEventListener("keydown", e => {
 });
 qEl.addEventListener("input", autoresize);
 
+/* 정밀 게이트(리랭커) 토글 */
+$("#precise").addEventListener("click", () => {
+  S.rerank = !S.rerank;
+  $("#precise").setAttribute("aria-pressed", S.rerank);
+  saveStore();
+});
+
 /* 헤더·레일 */
 $("#new-q").addEventListener("click", newSession);
 $("#qa-toggle").addEventListener("click", () => setQa(!S.qa));
@@ -611,6 +632,7 @@ $("#alpha").addEventListener("input", e => {
   S.alpha = +e.target.value; $("#alpha-v").textContent = S.alpha.toFixed(2);
 });
 $("#tau").addEventListener("input", e => {
+  S.tauTouched = true;
   S.tau = +e.target.value; $("#tau-v").textContent = S.tau.toFixed(2);
   reflagTau();
   const t = S.turns.find(x => x.id === S.sel);
@@ -657,11 +679,13 @@ fetch("/api/meta").then(r => r.json()).then(m => {
   $("#index-chip").textContent = `${(m.count ?? 0).toLocaleString()} 청크 · ${model}`;
   $("#index-chip").title =
     `임베딩 ${m.embed_model} · ${m.dim}차원 · 리랭커 ${m.reranker || "없음"} · 게이트 ${m.gate?.mode} τ=${m.gate?.tau}`;
-  if (m.gate) {
-    S.gateMode = m.gate.mode || "cosine";
-    S.tau = +m.gate.tau;
-    $("#tau").value = S.tau; $("#tau-v").textContent = S.tau.toFixed(2);
-    $("#qa-gatemode").textContent = "게이트: " + (S.gateMode === "rerank" ? "리랭커" : "코사인");
+  if (m.gate) syncTau(m.gate);
+  if (m.reranker) {
+    const p = $("#precise");
+    p.hidden = false;
+    p.setAttribute("aria-pressed", S.rerank);
+  } else {
+    S.rerank = false;   // 리랭커 미설치 — 토글 숨김, 항상 코사인
   }
   S.samples = m.samples || [];
   renderSamples();

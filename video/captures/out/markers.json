@@ -1,0 +1,74 @@
+[
+  {
+    "label": "hero",
+    "t": 0.988
+  },
+  {
+    "label": "q1_type",
+    "t": 3.588
+  },
+  {
+    "label": "q1_sent",
+    "t": 6.477
+  },
+  {
+    "label": "q1_evidence",
+    "t": 13.994
+  },
+  {
+    "label": "q1_answer",
+    "t": 29.082
+  },
+  {
+    "label": "q1_cite",
+    "t": 32.316
+  },
+  {
+    "label": "q2_sent",
+    "t": 35.785
+  },
+  {
+    "label": "q2_evidence",
+    "t": 40.677
+  },
+  {
+    "label": "q2_answer",
+    "t": 51.694
+  },
+  {
+    "label": "q2_map",
+    "t": 54.314
+  },
+  {
+    "label": "q3_type",
+    "t": 56.115
+  },
+  {
+    "label": "q3_sent",
+    "t": 58.169
+  },
+  {
+    "label": "q3_gated",
+    "t": 76.681
+  },
+  {
+    "label": "qa_on",
+    "t": 80.547
+  },
+  {
+    "label": "alpha_hi",
+    "t": 84.016
+  },
+  {
+    "label": "alpha_lo",
+    "t": 86.972
+  },
+  {
+    "label": "tau_hi",
+    "t": 90.283
+  },
+  {
+    "label": "end",
+    "t": 92.287
+  }
+]

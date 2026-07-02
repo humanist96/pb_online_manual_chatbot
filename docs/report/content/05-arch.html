@@ -1,0 +1,59 @@
+<section class="page">
+  <div class="kicker">How it works — 아키텍처</div>
+  <h1 class="head">매뉴얼 원문이 <em>그대로</em> 검색 인덱스가 됩니다</h1>
+
+  <p class="body mt2" style="max-width:150mm;">
+    별도 문서를 다시 쓰지 않습니다. RoboHelp 매뉴얼 HTML을 구조 그대로 파싱해 인덱스로 만들기 때문에,
+    <b>매뉴얼이 개정되면 명령 한 번으로 재빌드</b>됩니다.
+  </p>
+
+  <div class="pipe mt8">
+    <div class="pnode"><div class="pt">매뉴얼 HTML</div><div class="ps">RoboHelp 원문<br/>356개 화면</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">구조 보존 파싱</div><div class="ps">계층 경로(브레드크럼)<br/>유지 — 품질의 90%</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">청크 4,443</div><div class="ps">경로 1개 = 검색 1개<br/>= 근거 1개</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">하이브리드 검색</div><div class="ps">의미(FAISS)<br/>+ 키워드(BM25)</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">답변 생성</div><div class="ps">검색된 근거<br/>안에서만</div></div>
+  </div>
+
+  <div class="boundary">
+    <span class="bl" style="display:inline-flex; align-items:center; gap:2mm;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="#1e8a62" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#1e8a62" stroke-width="2.2"/></svg>사내 서버 안에서 완결</span>
+    <span class="bs">전 구간 오픈소스 모델(한국어 임베딩·리랭커·로컬 LLM) — 외부 API 호출 0건, 데이터 반출 0건</span>
+  </div>
+
+  <div class="mt8">
+    <div style="font-size:9pt; font-weight:800; color:var(--dim); letter-spacing:1.5px; margin-bottom:3mm;">청크 예시 — 경로가 곧 출처가 됩니다</div>
+    <div class="crumbs">
+      <span class="crumb">지점계좌서비스약정등록내역</span><span class="csep">›</span>
+      <span class="crumb">화면설명</span><span class="csep">›</span>
+      <span class="crumb">단계2</span><span class="csep">›</span>
+      <span class="crumb">서비스종류</span><span class="csep">›</span>
+      <span class="crumb last">SMS통보 : 문자 통보 서비스</span>
+    </div>
+    <p class="body mt4" style="font-size:9.4pt;">
+      매뉴얼의 계층 경로를 통째로 보존한 덕분에, 검색이 정확해지고("어느 화면의 어느 항목") 답변의 출처가
+      <b>사람이 검증 가능한 형태</b>로 남습니다. 이 구조가 이 시스템의 차별점입니다.
+    </p>
+  </div>
+
+  <div class="mt8" style="border-top:1px solid var(--line); padding-top:5mm;">
+    <div style="font-size:9pt; font-weight:800; color:var(--dim); letter-spacing:1.5px; margin-bottom:3mm;">기술 스택 (전부 오픈소스)</div>
+    <div class="crumbs">
+      <span class="crumb">한국어 임베딩 ko-sroberta</span>
+      <span class="crumb">리랭커 BGE-reranker</span>
+      <span class="crumb">FAISS 벡터 검색</span>
+      <span class="crumb">BM25 키워드 검색</span>
+      <span class="crumb">로컬 LLM(Ollama) · 발췌 폴백</span>
+      <span class="crumb">Python 표준 웹서버</span>
+    </div>
+    <p class="body mt4" style="font-size:9.4pt;">
+      LLM이 내려가 있어도 근거 발췌 모드로 답변이 계속되는 <b>무중단 폴백 구조</b>이며,
+      모델 교체(고정밀 임베딩 등)는 환경변수 변경만으로 가능합니다.
+    </p>
+  </div>
+
+  <div class="foot"><span>PB 매뉴얼 데스크 — 개발 보고 · 사내 한정</span><span class="pg">05</span></div>
+</section>

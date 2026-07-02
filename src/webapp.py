@@ -106,7 +106,7 @@ def _minmax(x: np.ndarray) -> np.ndarray:
 
 
 def search(query: str, alpha: float, topk: int, types: set[str] | None,
-           tau: float | None = None):
+           tau: float | None = None, use_rerank: bool = True):
     """하이브리드 검색 + 관련도 게이트.
     1) 하이브리드(정규화 combined)로 후보 정렬 → 코사인 원점수(cos_floor)로 coarse 컷
     2) 통과 후보를 리랭커로 정밀 재순위(있으면), 최종 신뢰도(confidence) 산출
@@ -135,8 +135,8 @@ def search(query: str, alpha: float, topk: int, types: set[str] | None,
         if len(pool) >= pool_size:
             break
 
-    # 2) 리랭크 → 최종 신뢰도
-    rr = rerank_scores(query, [_chunks[i]["text"] for i in pool]) if pool else None
+    # 2) 리랭크 → 최종 신뢰도 (use_rerank=False 면 코사인 게이트로 강등 — 웹 '정밀' 토글)
+    rr = rerank_scores(query, [_chunks[i]["text"] for i in pool]) if (pool and use_rerank) else None
     mode = "rerank" if rr is not None else "cosine"
     tau_default = float(_gate["tau_rerank"] if mode == "rerank" else _gate["tau_cos"])
     tau_eff = tau_default if tau is None else float(tau)
@@ -334,8 +334,9 @@ class Handler(BaseHTTPRequestHandler):
             tau = float(tau) if tau not in (None, "") else None
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
+            use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
             t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau)
+            hits, gate = search(q, alpha, topk, types, tau, use_rr)
             ms = round((time.perf_counter() - t0) * 1000, 1)
             return self._json({"query": q, "alpha": alpha, "topk": topk,
                                "types": sorted(types) if types else [],
@@ -352,8 +353,9 @@ class Handler(BaseHTTPRequestHandler):
             tau = float(tau) if tau not in (None, "") else None
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
+            use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
             t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau)
+            hits, gate = search(q, alpha, topk, types, tau, use_rr)
             search_ms = round((time.perf_counter() - t0) * 1000, 1)
             t1 = time.perf_counter()
             # 게이트: 전부 저신뢰면 LLM 호출 없이 '확인되지 않음' (할루시네이션 차단)

@@ -1,0 +1,21 @@
+{
+  "report": [
+    {"id": "intro", "dur": 14},
+    {"id": "problem", "dur": 38},
+    {"id": "demo", "dur": 52.5},
+    {"id": "arch", "dur": 32},
+    {"id": "status", "dur": 26},
+    {"id": "outro", "dur": 16}
+  ],
+  "full": [
+    {"id": "intro", "dur": 14},
+    {"id": "problem", "dur": 25},
+    {"id": "arch", "dur": 41},
+    {"id": "pipeline", "dur": 42},
+    {"id": "test", "dur": 17},
+    {"id": "cli", "dur": 23},
+    {"id": "demo", "dur": 56.5},
+    {"id": "deploy", "dur": 24},
+    {"id": "outro", "dur": 16}
+  ]
+}

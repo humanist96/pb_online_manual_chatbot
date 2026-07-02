@@ -1,0 +1,157 @@
+/* ═══ PB 매뉴얼 데스크 — 임원 보고 PDF 인쇄 스타일 ═══ */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('template/PretendardVariable.woff2') format('woff2-variations'); /* base = 리포트 루트 */
+  font-weight: 45 920;
+}
+:root {
+  --ink: #191c20; --ink2: #3f4650; --dim: #8a93a1; --faint: #b6bdc7;
+  --brand: #e4670a; --brand-soft: #f5821f; --brand-text: #c9610a;
+  --tint: #fff4e9; --tint-line: #f3d5b3;
+  --line: #e6e9ee; --line2: #d7dbe2;
+  --dark: #0b0e13; --dark2: #12161d;
+  --ok: #1e8a62; --blue: #46708f;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { font-family: 'Pretendard', sans-serif; color: var(--ink); }
+@page { size: A4; margin: 0; }
+
+.page {
+  width: 210mm; height: 297mm;
+  page-break-after: always;
+  position: relative; overflow: hidden;
+  background: #fff;
+  padding: 16mm 17mm 20mm;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.page:last-child { page-break-after: auto; }
+
+/* ── 공통 요소 ── */
+.kicker {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5pt; font-weight: 800; letter-spacing: 3.2px;
+  color: var(--brand); text-transform: uppercase; margin-bottom: 5.5mm;
+}
+.kicker::before { content: ''; width: 26px; height: 3px; background: linear-gradient(90deg, var(--brand-soft), var(--brand)); border-radius: 2px; }
+h1.head {
+  font-size: 24pt; font-weight: 880; letter-spacing: -0.6px;
+  line-height: 1.24; margin-bottom: 5mm; word-break: keep-all;
+}
+h1.head em { font-style: normal; color: var(--brand); }
+p.lede { font-size: 12pt; font-weight: 560; color: var(--ink2); line-height: 1.62; word-break: keep-all; }
+p.body { font-size: 10.5pt; font-weight: 440; color: var(--ink2); line-height: 1.68; word-break: keep-all; }
+p.body b, p.lede b { color: var(--ink); font-weight: 740; }
+
+.foot {
+  position: absolute; left: 17mm; right: 17mm; bottom: 9mm;
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--line); padding-top: 3mm;
+  font-size: 8pt; font-weight: 600; color: var(--dim); letter-spacing: 0.4px;
+}
+.foot .pg { color: var(--brand); font-weight: 800; }
+
+/* ── 스탯 카드 ── */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+.stat {
+  border: 1px solid var(--line2); border-radius: 12px;
+  padding: 7mm 4mm 6mm; text-align: center;
+  background: linear-gradient(180deg, #fff, #fafbfc);
+}
+.stat .n { font-size: 27pt; font-weight: 900; letter-spacing: -1px; color: var(--brand); line-height: 1; }
+.stat .n small { font-size: 13pt; font-weight: 800; }
+.stat .t { margin-top: 3.2mm; font-size: 10pt; font-weight: 760; color: var(--ink); }
+.stat .s { margin-top: 1.2mm; font-size: 8pt; font-weight: 500; color: var(--dim); }
+.stat.alt .n { color: var(--blue); }
+.stat.ok .n { color: var(--ok); }
+
+/* ── 스크린샷 프레임 ── */
+.shot { border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 22px -10px rgba(25,28,32,.25); }
+.shot img { display: block; width: 100%; }
+.cap { margin-top: 2.6mm; font-size: 8.5pt; font-weight: 560; color: var(--dim); text-align: center; word-break: keep-all; }
+.cap b { color: var(--brand-text); font-weight: 760; }
+
+/* ── 안내/보안 밴드 ── */
+.band {
+  border: 1px solid var(--tint-line); background: var(--tint);
+  border-radius: 12px; padding: 5mm 6mm;
+  display: flex; gap: 6mm; align-items: center;
+}
+.band .bt { font-size: 10pt; font-weight: 800; color: var(--brand-text); white-space: nowrap; }
+.band .bd { font-size: 9.5pt; font-weight: 520; color: var(--ink2); line-height: 1.55; word-break: keep-all; }
+
+/* ── 파이프라인 다이어그램 ── */
+.pipe { display: flex; align-items: stretch; gap: 0; }
+.pnode {
+  flex: 1; border: 1px solid var(--line2); border-radius: 10px;
+  padding: 4.5mm 2.5mm; text-align: center; background: #fff;
+}
+.pnode .pt { font-size: 10pt; font-weight: 800; color: var(--ink); }
+.pnode .ps { margin-top: 1.4mm; font-size: 7.6pt; font-weight: 520; color: var(--dim); line-height: 1.45; word-break: keep-all; }
+.pnode.hl { border-color: var(--tint-line); background: var(--tint); }
+.pnode.hl .pt { color: var(--brand-text); }
+.parrow { display: flex; align-items: center; padding: 0 1.6mm; color: var(--faint); font-size: 12pt; font-weight: 300; }
+.boundary {
+  margin-top: 4mm; border: 1.6px dashed rgba(30,138,98,.55); background: rgba(30,138,98,.05);
+  border-radius: 10px; padding: 3.6mm 5mm; display: flex; align-items: center; gap: 4mm;
+}
+.boundary .bl { font-size: 9.5pt; font-weight: 800; color: var(--ok); white-space: nowrap; }
+.boundary .bs { font-size: 9pt; font-weight: 500; color: var(--ink2); word-break: keep-all; }
+
+/* 브레드크럼 칩 */
+.crumbs { display: flex; align-items: center; gap: 2mm; flex-wrap: wrap; }
+.crumb {
+  font-size: 8.4pt; font-weight: 640; color: var(--ink2);
+  border: 1px solid var(--line2); border-radius: 7px; padding: 1.6mm 3mm; background: #fff;
+}
+.crumb.last { color: var(--brand-text); background: var(--tint); border-color: var(--tint-line); font-weight: 800; }
+.csep { color: var(--faint); font-size: 9pt; }
+
+/* ── 약속 카드 3종 ── */
+.promises { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+.promise { border: 1px solid var(--line2); border-radius: 12px; padding: 5.5mm 5mm; }
+.promise .no { font-size: 14pt; font-weight: 900; }
+.promise .pt { margin-top: 2mm; font-size: 11.5pt; font-weight: 820; color: var(--ink); }
+.promise .pd { margin-top: 2mm; font-size: 8.8pt; font-weight: 500; color: var(--ink2); line-height: 1.55; word-break: keep-all; }
+.promise:nth-child(1) .no { color: var(--brand); }
+.promise:nth-child(2) .no { color: var(--blue); }
+.promise:nth-child(3) .no { color: var(--ok); }
+
+/* ── 타임라인 ── */
+.tl { position: relative; padding-left: 7mm; }
+.tl::before { content: ''; position: absolute; left: 1.7mm; top: 2mm; bottom: 2mm; width: 2px; background: var(--line2); }
+.tli { position: relative; padding-bottom: 5.5mm; }
+.tli:last-child { padding-bottom: 0; }
+.tli::before {
+  content: ''; position: absolute; left: -6.5mm; top: 1.4mm;
+  width: 3.4mm; height: 3.4mm; border-radius: 50%;
+  background: #fff; border: 2.4px solid var(--brand);
+}
+.tli.done::before { background: var(--brand); }
+.tli .tt { font-size: 10.5pt; font-weight: 800; color: var(--ink); }
+.tli .tt span { color: var(--dim); font-weight: 600; font-size: 8.5pt; margin-left: 2mm; }
+.tli .td { margin-top: 1mm; font-size: 9pt; font-weight: 500; color: var(--ink2); line-height: 1.5; word-break: keep-all; }
+
+/* ── 체크리스트 ── */
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 5mm; }
+.check { display: flex; gap: 2.6mm; align-items: baseline; font-size: 9.4pt; font-weight: 560; color: var(--ink2); }
+.check::before { content: '✓'; color: var(--ok); font-weight: 900; font-size: 10pt; }
+.check b { color: var(--ink); font-weight: 760; }
+
+/* ── 2컬럼 유틸 ── */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm; }
+.mt2 { margin-top: 2mm; } .mt4 { margin-top: 4mm; } .mt6 { margin-top: 6mm; }
+.mt8 { margin-top: 8mm; } .mt10 { margin-top: 10mm; } .mt12 { margin-top: 12mm; }
+
+/* ── 다크 페이지 (표지/클로징) ── */
+.page.dark { background: linear-gradient(165deg, var(--dark) 55%, #151b26 100%); color: #f3f5f9; }
+.page.dark .foot { border-top-color: rgba(255,255,255,.12); color: rgba(255,255,255,.45); }
+.gradbar { height: 4px; background: linear-gradient(90deg, #ff9a3d, #e4670a 60%, transparent); border-radius: 3px; }
+
+/* 로드맵 스텝 */
+.steps { display: flex; align-items: center; gap: 3mm; }
+.step {
+  font-size: 10pt; font-weight: 780; padding: 3.4mm 6mm; border-radius: 999px;
+  border: 1px solid var(--line2); color: var(--ink2); background: #fff; white-space: nowrap;
+}
+.step.on { background: linear-gradient(135deg, #ff9a3d, #e4670a); border-color: transparent; color: #241303; }
+.sarrow { color: var(--faint); font-size: 13pt; }

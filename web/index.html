@@ -71,6 +71,8 @@
     <div class="dock">
       <form class="composer" id="composer">
         <textarea id="q" rows="1" placeholder="매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
+        <button type="button" class="precise" id="precise" aria-pressed="true" hidden
+          title="정밀 게이트(리랭커) — 켜면 관련도 판정이 정확(질문당 +10초 내외), 끄면 빠른 코사인 판정">정밀</button>
         <button class="ask" id="ask" type="submit">질문하기</button>
       </form>
       <p class="dock-hint"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · 답변은 계좌 매뉴얼 안에서만 생성돼요</p>

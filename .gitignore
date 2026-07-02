@@ -32,3 +32,18 @@ data/AC*.json
 *.tmp
 .DS_Store
 Thumbs.db
+
+# ── 영상 제작 산출물 (video/ — mp4/캡처는 사내 데이터 포함, 커밋 금지) ──
+video/out/*
+!video/out/.gitkeep
+video/captures/out/*.webm
+video/captures/out/*.png
+video/remotion/node_modules/
+video/remotion/out/
+video/remotion/public/demo/
+video/remotion/public/fonts/
+
+# 임원 보고 PDF 산출물
+docs/report/out/*
+!docs/report/out/.gitkeep
+docs/report/template/PretendardVariable.woff2

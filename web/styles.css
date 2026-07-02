@@ -96,8 +96,9 @@ kbd{
 }
 body.is-empty .shell{grid-template-columns:250px minmax(0,1fr) 0}
 body.is-empty .evidence{display:none}
-body.nav-closed .shell{grid-template-columns:0 minmax(0,1fr) 372px}
-body.nav-closed.is-empty .shell{grid-template-columns:0 minmax(0,1fr) 0}
+/* 레일이 display:none 되면 그리드 아이템이 2개가 되므로 컬럼도 2개로 (자동 배치 밀림 방지) */
+body.nav-closed .shell{grid-template-columns:minmax(0,1fr) 372px}
+body.nav-closed.is-empty .shell{grid-template-columns:minmax(0,1fr) 0}
 body.nav-closed .rail{display:none}
 
 /* ── 좌: 이력 레일 ── */
@@ -274,6 +275,14 @@ body.is-empty .dock::before{display:none}
   max-height:160px; padding:4px 0;
 }
 .composer textarea::placeholder{color:var(--faint)}
+.precise{
+  flex:0 0 auto; padding:8px 13px; border-radius:11px; margin-bottom:1px;
+  border:1px solid var(--line-2); font-size:12.5px; font-weight:700; color:var(--dim);
+  transition:background .12s, color .12s, border-color .12s;
+}
+.precise:hover{border-color:var(--steel-2); color:var(--ink-2)}
+.precise[aria-pressed="true"]{background:var(--steel); border-color:var(--steel); color:#fff}
+.precise[hidden]{display:none}
 .ask{
   flex:0 0 auto; padding:9px 18px; border-radius:11px;
   background:var(--brand); color:#fff; font-weight:700; font-size:14px; letter-spacing:.01em;
@@ -416,7 +425,7 @@ body.qa .evc-conf{color:var(--brand-text); font-weight:700}
 /* ════════════════════════ 반응형 ════════════════════════ */
 @media (max-width:1200px){
   .shell{grid-template-columns:230px minmax(0,1fr) 330px}
-  body.nav-closed .shell{grid-template-columns:0 minmax(0,1fr) 330px}
+  body.nav-closed .shell{grid-template-columns:minmax(0,1fr) 330px}
 }
 @media (max-width:960px){
   .shell{grid-template-columns:minmax(0,1fr) !important}

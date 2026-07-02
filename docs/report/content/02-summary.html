@@ -1,0 +1,42 @@
+<section class="page">
+  <div class="kicker">Executive Summary</div>
+  <h1 class="head">매뉴얼을 <em>찾는 시간</em>이,<br/>이제 <em>묻는 시간</em>이 됐습니다</h1>
+
+  <p class="lede mt4">
+    토스증권 원장시스템(PowerBASE)의 온라인 매뉴얼 전체를 <b>자연어로 묻고, 근거와 함께 답을 받는</b>
+    사내 챗봇을 구축했습니다. 계좌 부문 356개 화면이 이미 검색 가능하며, 서버 반입 패키징까지 끝난
+    <b>운영 준비 완료</b> 상태입니다.
+  </p>
+
+  <div class="stats mt10">
+    <div class="stat"><div class="n">356</div><div class="t">인덱싱된 화면</div><div class="s">계좌 부문 전체</div></div>
+    <div class="stat alt"><div class="n">4,443</div><div class="t">검색 단위(청크)</div><div class="s">경로 1개 = 근거 1개</div></div>
+    <div class="stat"><div class="n">15<small>초</small></div><div class="t">AI 답변 생성</div><div class="s">데모 실측 기준</div></div>
+    <div class="stat ok"><div class="n">0<small>건</small></div><div class="t">외부 API 호출</div><div class="s">전 과정 사내 서버</div></div>
+  </div>
+
+  <div class="mt10">
+    <p class="body">
+      <b>어떻게 —</b> 매뉴얼 원문의 계층 구조를 그대로 보존해 검색 인덱스로 만들고(브레드크럼 방식),
+      의미 검색과 키워드 검색을 결합한 하이브리드 방식으로 찾아, <b>검색된 근거 안에서만</b> 답변을
+      생성합니다. 매뉴얼에 없는 질문은 지어내지 않고 "확인되지 않았어요"라고 답합니다.
+    </p>
+    <p class="body mt4">
+      <b>왜 자체 구축 —</b> 사내 폐쇄망·데이터 보호 요건상 외부 상용 AI API를 쓸 수 없습니다.
+      임베딩·검색·답변 생성 전부를 <b>오픈소스 모델</b>로 사내 서버 안에서 해결했고,
+      덕분에 추가 라이선스 비용도 없습니다.
+    </p>
+    <p class="body mt4">
+      <b>현재 상태 —</b> 파서 품질은 회귀 테스트 5/5로 검증, Docker·systemd 배포 패키징 완료,
+      검색 품질을 눈으로 검증하는 QA 계측 콘솔 내장. 소개 영상 2편(보고용 3분·실무 상세본 4분)을 함께 제작했습니다.
+    </p>
+  </div>
+
+  <div class="band mt10">
+    <span class="bt">▶ 동봉 영상</span>
+    <span class="bd"><b>report.mp4</b>(2분 58초) — 이 보고서의 영상 버전 · <b>full.mp4</b>(4분 19초) — 구축 과정·실습 포함 상세본.
+    윈도우 PC에서 더블클릭으로 바로 재생됩니다.</span>
+  </div>
+
+  <div class="foot"><span>PB 매뉴얼 데스크 — 개발 보고 · 사내 한정</span><span class="pg">02</span></div>
+</section>
