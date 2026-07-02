@@ -592,10 +592,18 @@ qEl.addEventListener("keydown", e => {
 });
 qEl.addEventListener("input", autoresize);
 
-/* 정밀 게이트(리랭커) 토글 */
+/* 정밀 게이트(리랭커) 토글 — 라벨이 현재 모드를 말해준다 */
+function renderPrecise() {
+  const p = $("#precise");
+  p.setAttribute("aria-pressed", S.rerank);
+  p.textContent = S.rerank ? "정밀 검색" : "빠른 검색";
+  p.title = S.rerank
+    ? "정밀 검색 중 — 리랭커가 관련도를 정확히 판정해요(질문당 +수 초). 누르면 빠른 검색으로 전환"
+    : "빠른 검색 중 — 코사인 판정으로 즉시 응답해요. 누르면 정밀 검색으로 전환";
+}
 $("#precise").addEventListener("click", () => {
   S.rerank = !S.rerank;
-  $("#precise").setAttribute("aria-pressed", S.rerank);
+  renderPrecise();
   saveStore();
 });
 
@@ -681,9 +689,8 @@ fetch("/api/meta").then(r => r.json()).then(m => {
     `임베딩 ${m.embed_model} · ${m.dim}차원 · 리랭커 ${m.reranker || "없음"} · 게이트 ${m.gate?.mode} τ=${m.gate?.tau}`;
   if (m.gate) syncTau(m.gate);
   if (m.reranker) {
-    const p = $("#precise");
-    p.hidden = false;
-    p.setAttribute("aria-pressed", S.rerank);
+    $("#precise").hidden = false;
+    renderPrecise();
   } else {
     S.rerank = false;   // 리랭커 미설치 — 토글 숨김, 항상 코사인
   }

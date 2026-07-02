@@ -311,8 +311,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", _STATIC_TYPES[ext])
             self.send_header("Content-Length", str(len(body)))
-            # 폰트/자산은 캐시 허용 (인덱스·API는 no-store 유지)
-            self.send_header("Cache-Control", "public, max-age=86400")
+            # css/js는 배포 즉시 반영되도록 no-cache, 폰트·이미지만 캐시 허용
+            cache = "no-cache" if ext in (".css", ".js") else "public, max-age=86400"
+            self.send_header("Cache-Control", cache)
             self.end_headers()
             return self.wfile.write(body)
         if path == "/api/meta":

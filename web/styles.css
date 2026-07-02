@@ -276,12 +276,19 @@ body.is-empty .dock::before{display:none}
 }
 .composer textarea::placeholder{color:var(--faint)}
 .precise{
-  flex:0 0 auto; padding:8px 13px; border-radius:11px; margin-bottom:1px;
-  border:1px solid var(--line-2); font-size:12.5px; font-weight:700; color:var(--dim);
+  flex:0 0 auto; display:inline-flex; align-items:center; gap:7px;
+  padding:8px 14px; border-radius:11px; margin-bottom:1px;
+  background:var(--mist); border:1px solid var(--line-2);
+  font-size:13px; font-weight:700; color:var(--ink-2); white-space:nowrap;
   transition:background .12s, color .12s, border-color .12s;
 }
-.precise:hover{border-color:var(--steel-2); color:var(--ink-2)}
+.precise::before{
+  content:""; width:7px; height:7px; border-radius:50%;
+  background:var(--faint); transition:background .12s;
+}
+.precise:hover{border-color:var(--steel-2)}
 .precise[aria-pressed="true"]{background:var(--steel); border-color:var(--steel); color:#fff}
+.precise[aria-pressed="true"]::before{background:var(--ok)}
 .precise[hidden]{display:none}
 .ask{
   flex:0 0 auto; padding:9px 18px; border-radius:11px;
