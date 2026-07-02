@@ -3,553 +3,116 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PB 챗봇 - QnA 어시스트 · PowerBASE 계좌</title>
-<style>
-  /* ─────────────────────────  KOSCOM 코퍼레이트 토큰  ─────────────────────────
-     화이트 표면 + 오렌지 시그니처 + 진회색 잉크.
-     오렌지값은 KOSCOM 오렌지 계열 표준(#F5821F). 공식 로고 픽셀로 확정 가능. */
-  :root{
-    --paper:#ffffff; --mist:#f5f6f8; --mist-2:#eef0f4;
-    --line:#e5e8ed; --line-2:#d8dce3;
-    --ink-strong:#14171b; --ink:#2b2f36; --ink-2:#4a515b; --dim:#7a828e; --faint:#a0a7b2;
-    /* 시그니처 오렌지 — 유일한 볼드 컬러 */
-    --orange:#f5821f; --orange-deep:#e4670a; --orange-lite:#ff9a3d; --orange-tint:#fff3e8;
-    /* 진회색 대비축 (CI: 오렌지↔진회색) */
-    --steel:#3a4149; --steel-2:#5b636d;
-    /* 청크 유형 */
-    --t-overview:#2c6ea8; --t-description:#c8781a; --t-glossary:#2e8b6e;
-    --t-related:#6a4a86; --t-qa:#e4670a;
-    --mono:"Cascadia Code","D2Coding",ui-monospace,"SFMono-Regular",Consolas,monospace;
-    --sans:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,
-           "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:var(--paper); color:var(--ink);
-    font-family:var(--sans); font-size:15px; line-height:1.55;
-    -webkit-font-smoothing:antialiased;
-  }
-  a{color:var(--orange-deep); text-decoration:none}
-  a:hover{text-decoration:underline}
-  button{font-family:inherit}
-  .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
-  .eyebrow{
-    font-family:var(--mono); font-size:10.5px; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--faint);
-  }
-
-  /* ─────────────────────────  헤더 (KOSCOM 톱바)  ───────────────────────── */
-  header{
-    position:sticky; top:0; z-index:20;
-    display:flex; align-items:center; gap:16px;
-    padding:13px 24px; background:var(--paper);
-    border-bottom:1px solid var(--line);
-    box-shadow:0 1px 0 #fff, 0 6px 18px -14px #1417200f;
-  }
-  header::before{
-    content:""; position:absolute; left:0; right:0; top:0; height:2px;
-    background:linear-gradient(90deg,var(--orange),var(--orange-deep) 42%,transparent 78%);
-  }
-  /* 소문자 워드마크 (KOSCOM CI 재현 — 공식 자산 있으면 이 블록만 교체) */
-  .wordmark{display:flex; align-items:center; gap:9px; flex:0 0 auto}
-  .wordmark .sym{
-    width:28px; height:28px; display:block;
-    filter:drop-shadow(0 3px 6px #e4670a3d);
-    transition:transform .3s cubic-bezier(.2,.7,.3,1), filter .3s;
-  }
-  .wordmark:hover .sym{transform:rotate(-6deg) scale(1.06); filter:drop-shadow(0 5px 10px #e4670a4d)}
-  .wordmark .sym .spark,.wordmark .sym .spark2{transform-box:fill-box; transform-origin:center}
-  .wordmark .sym .spark{animation:twinkle 4.2s ease-in-out infinite}
-  .wordmark .sym .spark2{animation:twinkle 4.2s ease-in-out .7s infinite}
-  @keyframes twinkle{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.72; transform:scale(.82)}}
-  .wordmark .wm{
-    font-weight:700; font-size:20px; letter-spacing:-.01em; line-height:1;
-    color:var(--steel); font-family:var(--sans);
-  }
-  .vr{width:1px; height:26px; background:var(--line-2); flex:0 0 auto}
-  .brand h1{margin:0; font-size:15.5px; font-weight:700; letter-spacing:.005em; color:var(--ink-strong)}
-  .brand .sub{font-size:11.5px; color:var(--dim); letter-spacing:.01em}
-  .idcard{
-    margin-left:auto; display:flex; align-items:stretch;
-    border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--mist);
-  }
-  .idcard div{padding:6px 13px; border-right:1px solid var(--line)}
-  .idcard div:last-child{border-right:0}
-  .idcard b{display:block; font-family:var(--mono); font-size:13.5px; color:var(--ink-strong);
-    font-variant-numeric:tabular-nums; line-height:1.35}
-  .idcard span{font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
-
-  /* ─────────────────────────  레이아웃  ───────────────────────── */
-  .shell{display:grid; grid-template-columns:308px 1fr; min-height:calc(100vh - 60px)}
-  .rail{
-    position:sticky; top:60px; align-self:start; height:calc(100vh - 60px);
-    overflow:auto; padding:22px 20px 32px;
-    background:var(--mist); border-right:1px solid var(--line);
-  }
-  main{padding:22px 28px 80px; max-width:1080px}
-
-  /* ── 컨트롤 레일 ── */
-  .field{margin-bottom:22px}
-  .field > label{display:block; margin-bottom:8px}
-  textarea#q{
-    width:100%; min-height:76px; resize:vertical; padding:11px 12px;
-    background:var(--paper); color:var(--ink-strong); border:1px solid var(--line-2);
-    border-radius:8px; font-family:var(--sans); font-size:14.5px; line-height:1.5;
-  }
-  textarea#q::placeholder{color:var(--faint)}
-  textarea#q:focus{outline:2px solid var(--orange); outline-offset:1px; border-color:transparent}
-  .run{
-    margin-top:10px; width:100%; padding:11px 14px; cursor:pointer;
-    background:linear-gradient(180deg,var(--orange-lite),var(--orange) 55%,var(--orange-deep));
-    color:#fff; font-weight:700; font-size:14px; letter-spacing:.02em;
-    border:1px solid var(--orange-deep); border-radius:8px;
-    box-shadow:inset 0 1px 0 #ffffff55, 0 2px 6px -3px var(--orange-deep);
-  }
-  .run:hover{filter:brightness(1.04)} .run:active{transform:translateY(1px)}
-  .run[disabled]{opacity:.55; cursor:progress}
-
-  .slider-row{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px}
-  .slider-row .val{font-family:var(--mono); font-size:14px; color:var(--orange-deep); font-weight:700}
-  input[type=range]{width:100%; accent-color:var(--orange); margin:4px 0}
-  .scale{display:flex; justify-content:space-between; font-family:var(--mono);
-    font-size:9.5px; letter-spacing:.1em; color:var(--faint); text-transform:uppercase}
-  input#topk{
-    width:72px; padding:7px 9px; background:var(--paper); color:var(--ink-strong);
-    border:1px solid var(--line-2); border-radius:7px; font-family:var(--mono); font-size:14px;
-  }
-  input#topk:focus{outline:2px solid var(--orange); outline-offset:1px; border-color:transparent}
-
-  .types{display:flex; flex-direction:column; gap:2px}
-  .types label{
-    display:flex; align-items:center; gap:9px; padding:5px 7px; border-radius:7px;
-    cursor:pointer; font-size:13.5px; color:var(--ink-2);
-  }
-  .types label:hover{background:var(--mist-2)}
-  .types input{accent-color:var(--orange); width:15px; height:15px}
-  .tdot{width:9px; height:9px; border-radius:2px; flex:0 0 auto}
-  .types .cnt{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--faint)}
-
-  .hint{margin-top:20px; padding-top:16px; border-top:1px solid var(--line);
-    font-size:11.5px; color:var(--dim); line-height:1.7}
-  .hint b{color:var(--ink-2)}
-  .hint kbd{font-family:var(--mono); font-size:10.5px; background:var(--paper);
-    border:1px solid var(--line-2); border-bottom-width:2px; border-radius:4px; padding:1px 5px; color:var(--ink-2)}
-
-  /* ── 상태 줄 ── */
-  .status{
-    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
-    padding-bottom:16px; margin-bottom:20px; border-bottom:1px solid var(--line);
-  }
-  .status .q{font-size:16px; color:var(--ink-strong); font-weight:600}
-  .status .q::before{content:"› "; color:var(--orange)}
-  .status .stat{font-family:var(--mono); font-size:11.5px; color:var(--dim);
-    font-variant-numeric:tabular-nums; letter-spacing:.01em}
-  .status .stat b{color:var(--orange-deep)}
-
-  /* ─────────────────────────  결과 슬립(카드)  ───────────────────────── */
-  .slip{
-    position:relative; margin-bottom:14px;
-    background:var(--paper); color:var(--ink);
-    border:1px solid var(--line); border-radius:10px;
-    box-shadow:0 1px 2px #1417200a, 0 10px 24px -20px #14172033;
-    overflow:hidden; transition:box-shadow .18s, border-color .18s;
-  }
-  .slip:hover{border-color:var(--line-2); box-shadow:0 2px 4px #14172010, 0 14px 28px -20px #1417203d}
-  /* 좌측 랭크 탭 (순위 = 실제 검색 랭킹 정보) */
-  .slip .tab{
-    position:absolute; left:0; top:0; bottom:0; width:44px;
-    background:var(--mist); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; align-items:center; padding-top:13px; gap:3px;
-  }
-  .slip .tab::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:transparent}
-  .slip:hover .tab::before{background:var(--orange)}
-  .slip .tab .rk{font-family:var(--mono); font-size:17px; font-weight:700; color:var(--ink-strong);
-    font-variant-numeric:tabular-nums}
-  .slip .tab .rk-l{font-family:var(--mono); font-size:8px; letter-spacing:.12em; color:var(--faint)}
-  .slip .body{padding:13px 16px 14px 58px}
-
-  .slip .top{display:flex; align-items:center; gap:12px; margin-bottom:9px}
-  .badge{
-    display:inline-flex; align-items:center; gap:6px; padding:2px 9px 2px 7px;
-    border-radius:100px; font-size:11px; font-weight:650; letter-spacing:.02em; color:#fff;
-  }
-  .badge .b-dot{width:6px;height:6px;border-radius:50%;background:#ffffffcc}
-
-  /* ★ 시그니처: dense(오렌지) ↔ sparse(진회색) 대비 메터 ★
-     KOSCOM CI '오렌지↔진회색 강한 대비' = 하이브리드 검색의 dense/sparse 대비. */
-  .gauge{margin-left:auto; display:flex; align-items:center; gap:12px}
-  .cbar{display:flex; flex-direction:column; gap:4px; width:150px}
-  .cbar-row{display:flex; align-items:center; gap:7px}
-  .cbar-l{font-family:var(--mono); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase;
-    color:var(--faint); width:38px; text-align:right}
-  .cbar-track{flex:1; height:7px; border-radius:100px; background:var(--mist-2); overflow:hidden;
-    box-shadow:inset 0 1px 2px #14172012}
-  .cbar-fill{display:block; height:100%; border-radius:100px; width:var(--w,0); position:relative;
-    animation:grow .75s cubic-bezier(.2,.75,.25,1) both; animation-delay:calc(var(--i,0)*70ms + .14s)}
-  .cbar-fill::after{content:""; position:absolute; inset:0; border-radius:100px;
-    background:linear-gradient(180deg,#ffffff55,transparent 55%)}
-  .cbar-fill.dense{background:linear-gradient(90deg,var(--orange-lite),var(--orange))}
-  .cbar-fill.sparse{background:linear-gradient(90deg,var(--steel-2),var(--steel))}
-  @keyframes grow{from{width:0} to{width:var(--w,0)}}
-  .gauge .sc{font-family:var(--mono); font-size:15px; font-weight:700; color:var(--orange-deep);
-    font-variant-numeric:tabular-nums; min-width:42px; text-align:right}
-
-  /* 브레드크럼 taxonomy trail */
-  .trail{display:flex; flex-wrap:wrap; align-items:center; gap:3px 2px; margin:2px 0 10px}
-  .trail .seg{font-size:12px; color:var(--dim); white-space:nowrap}
-  .trail .sep{color:var(--line-2); font-family:var(--mono); font-size:11px; margin:0 1px}
-  .trail .seg.root{color:var(--ink); font-weight:600}
-  .trail .seg.leaf{
-    color:var(--orange-deep); background:var(--orange-tint); font-weight:650;
-    padding:1px 9px; border-radius:6px; border:1px solid #f7ce9e;
-  }
-  .trail .seg.leaf::before{content:"◉ "; color:var(--orange); font-size:9px}
-
-  .text{font-size:14.5px; line-height:1.62; color:var(--ink); margin:0}
-  .text mark{background:var(--orange-tint); color:var(--orange-deep); padding:0 3px; border-radius:3px;
-    box-shadow:inset 0 -1px 0 #f7ce9e}
-  .text .bullet{color:var(--orange); font-weight:700}
-
-  .foot{
-    display:flex; align-items:center; gap:14px; margin-top:11px; padding-top:9px;
-    border-top:1px dashed var(--line-2); font-family:var(--mono); font-size:11.5px; color:var(--dim);
-  }
-  .foot .code{color:var(--ink-strong); font-weight:600}
-  .foot .no{color:var(--orange-deep)}
-  .foot a{margin-left:auto; font-family:var(--sans); font-size:12px}
-
-  /* 빈/무결과 상태 */
-  .empty{margin-top:44px; text-align:center; color:var(--dim)}
-  .empty .stamp{
-    display:inline-block; margin-bottom:14px; padding:11px 20px;
-    border:1.5px solid var(--line-2); color:var(--dim); border-radius:10px;
-    font-weight:700; letter-spacing:.04em; font-size:14px; background:var(--mist);
-  }
-  .empty.dim .stamp{border-color:#f2c79a; color:var(--orange-deep); background:var(--orange-tint)}
-  .empty p{font-size:13.5px; max-width:460px; margin:0 auto}
-
-  /* ─────────────────────────  상단 답변 챗봇 창  ───────────────────────── */
-  .answer{
-    margin-bottom:22px; border:1px solid var(--line); border-radius:14px;
-    background:linear-gradient(180deg,#fff,var(--mist));
-    box-shadow:0 1px 2px #1417200a, 0 18px 34px -28px #14172047; overflow:hidden;
-    animation:rise .3s cubic-bezier(.2,.7,.3,1) both;
-  }
-  .answer-head{display:flex; align-items:center; gap:10px; padding:11px 16px;
-    border-bottom:1px solid var(--line); background:#fff}
-  .answer-head .ai{
-    width:26px; height:26px; border-radius:7px; flex:0 0 auto;
-    background:linear-gradient(135deg,var(--orange-lite),var(--orange-deep));
-    display:grid; place-items:center; color:#fff; font-weight:800;
-    font-family:var(--mono); font-size:13px; box-shadow:inset 0 1px 0 #ffffff66}
-  .answer-head .ttl{font-weight:700; color:var(--ink-strong); font-size:13.5px}
-  .answer-head .mode{margin-left:auto; font-family:var(--mono); font-size:10px;
-    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:100px;
-    border:1px solid var(--line-2); color:var(--dim); background:var(--mist)}
-  .answer-head .mode.gen{color:var(--orange-deep); border-color:#f2c79a; background:var(--orange-tint)}
-  .answer-q{padding:13px 16px 0}
-  .answer-q .bubble{display:inline-block; max-width:100%; background:var(--steel); color:#fff;
-    padding:8px 13px; border-radius:13px 13px 13px 4px; font-size:14px; line-height:1.5}
-  .answer-body{padding:14px 16px 15px}
-  .a-txt{font-size:15px; line-height:1.72; color:var(--ink); white-space:pre-wrap; margin:0}
-  .a-txt .cite{cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;
-    color:var(--orange-deep); background:var(--orange-tint); border:1px solid #f7ce9e;
-    border-radius:5px; padding:0 5px; margin:0 1.5px; text-decoration:none; white-space:nowrap}
-  .a-txt .cite:hover{background:var(--orange); color:#fff}
-  .answer.loading .a-txt{color:var(--dim)}
-  .dots::after{content:""; animation:dots 1.2s steps(1,end) infinite}
-  @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"··"}75%{content:"···"}}
-  .answer-foot{display:flex; gap:14px; align-items:center; padding:9px 16px;
-    border-top:1px dashed var(--line-2); font-family:var(--mono); font-size:11px; color:var(--dim)}
-  .answer-foot b{color:var(--orange-deep)}
-  /* 근거 영역 라벨 (상·하단 구분) */
-  .results-label{display:flex; align-items:center; gap:10px; margin:2px 0 14px}
-  .results-label .rl{font-family:var(--mono); font-size:10.5px; letter-spacing:.16em;
-    text-transform:uppercase; color:var(--faint); white-space:nowrap}
-  .results-label .rl-line{flex:1; height:1px; background:var(--line)}
-  .slip.hl{animation:hlslip 1.6s ease 1}
-  @keyframes hlslip{0%,100%{box-shadow:0 1px 2px #1417200a}
-    22%{box-shadow:0 0 0 3px var(--orange-tint), 0 0 0 4px var(--orange)}}
-
-  @keyframes rise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
-  .slip{animation:rise .44s cubic-bezier(.2,.7,.3,1) both; animation-delay:calc(var(--i,0)*70ms)}
-
-  :focus-visible{outline:2px solid var(--orange); outline-offset:2px}
-
-  @media (prefers-reduced-motion:reduce){
-    .slip,.cbar-fill,.answer{animation:none !important}
-    .cbar-fill{width:var(--w,0)}
-    .wordmark .sym .spark,.wordmark .sym .spark2{animation:none}
-    .wordmark:hover .sym{transform:none}
-  }
-  @media (max-width:840px){
-    .shell{grid-template-columns:1fr}
-    .rail{position:static; height:auto; border-right:0; border-bottom:1px solid var(--line)}
-    .idcard{display:none}
-    .cbar{width:118px}
-  }
-</style>
+<title>PB 매뉴얼 데스크 · PowerBASE 계좌</title>
+<link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
-  <header>
-    <!-- KOSCOM 스타일 소문자 워드마크 (인라인 SVG 심볼 + 텍스트) -->
-    <div class="wordmark" aria-label="koscom">
-      <svg class="sym" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="kAI" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/>
-          </linearGradient>
-          <linearGradient id="kSteel" x1="28" y1="28" x2="6" y2="6" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#20242b" stop-opacity=".55"/>
-            <stop offset="1" stop-color="#20242b" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
-        <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kSteel)"/>
-        <rect x="1.6" y="1.6" width="24.8" height="12" rx="7.4" fill="#fff" opacity=".10"/>
-        <path class="spark" d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4
-              C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
-        <path class="spark2" d="M21.4 18.2C21.6 20 22 20.4 23.6 20.7C22 21 21.6 21.4 21.4 23.2
-              C21.2 21.4 20.8 21 19.2 20.7C20.8 20.4 21.2 20 21.4 18.2Z" fill="#fff" opacity=".85"/>
-      </svg>
-      <span class="wm">koscom</span>
-    </div>
-    <div class="vr"></div>
-    <div class="brand">
-      <h1>PB 챗봇 - QnA 어시스트</h1>
-      <div class="sub">PowerBASE · 계좌 매뉴얼 · 검색품질 QA</div>
-    </div>
-    <div class="idcard" id="idcard" aria-label="인덱스 정보">
-      <div><b id="m-count">–</b><span>슬립</span></div>
-      <div><b id="m-model">–</b><span>임베딩</span></div>
-      <div><b id="m-dim">–</b><span>차원</span></div>
-    </div>
-  </header>
+<body class="is-empty">
 
-  <div class="shell">
-    <!-- 컨트롤 레일 -->
-    <aside class="rail">
-      <div class="field">
-        <label class="eyebrow" for="q">질의어</label>
-        <textarea id="q" placeholder="예) 변경사용자 항목은 어디서 확인하나요?"></textarea>
-        <button class="run" id="run">검색 실행 ▸</button>
-      </div>
+<header class="top">
+  <button class="icon-btn" id="nav-toggle" aria-label="질문 이력 열기/닫기">
+    <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  </button>
 
-      <div class="field">
-        <div class="slider-row">
-          <label class="eyebrow" for="alpha">혼합 가중치 α</label>
-          <span class="val" id="alpha-val">0.50</span>
-        </div>
-        <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.5" />
-        <div class="scale"><span>BM25</span><span>혼합</span><span>Dense</span></div>
-      </div>
-
-      <div class="field">
-        <label class="eyebrow" for="topk">반환 개수 top-k</label><br/>
-        <input type="number" id="topk" min="1" max="30" value="5" />
-      </div>
-
-      <div class="field">
-        <label class="eyebrow">청크 유형 필터</label>
-        <div class="types" id="types"></div>
-      </div>
-
-      <div class="hint">
-        <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 로 검색 실행<br/>
-        α는 <b>Dense(의미)</b> ↔ <b>BM25(키워드)</b> 비중.<br/>
-        각 슬립의 <b>dense/sparse</b> 대비 바로 어떤 신호가 결과를 끌어올렸는지 판단하세요.
-      </div>
-    </aside>
-
-    <!-- 결과 스트림 -->
-    <main>
-      <!-- 상단: 최적화 답변 챗봇 창 -->
-      <section class="answer" id="answer" hidden>
-        <div class="answer-head">
-          <span class="ai">A</span>
-          <span class="ttl">최적화 답변</span>
-          <span class="mode" id="a-mode">–</span>
-        </div>
-        <div class="answer-q"><span class="bubble" id="a-q"></span></div>
-        <div class="answer-body"><p class="a-txt" id="a-txt"></p></div>
-        <div class="answer-foot" id="a-foot"></div>
-      </section>
-
-      <!-- 하단: 검색 근거(슬립) 유지 -->
-      <div class="results-label" id="results-label" hidden>
-        <span class="rl">검색 근거</span><span class="rl-line"></span>
-        <span class="stat" id="s-stat"></span>
-      </div>
-      <div id="results"></div>
-      <div class="empty dim" id="welcome">
-        <div class="stamp">질문 대기</div>
-        <p>질의어를 입력하고 실행하면 상단에 최적화 답변이, 하단에 근거 슬립이 순위대로 나타납니다.</p>
-      </div>
-    </main>
+  <div class="wordmark" aria-label="koscom">
+    <svg class="sym" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="kAI" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/>
+        </linearGradient>
+        <linearGradient id="kSteel" x1="28" y1="28" x2="6" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#20242b" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#20242b" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
+      <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kSteel)"/>
+      <rect x="1.6" y="1.6" width="24.8" height="12" rx="7.4" fill="#fff" opacity=".10"/>
+      <path d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4
+            C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
+      <path d="M21.4 18.2C21.6 20 22 20.4 23.6 20.7C22 21 21.6 21.4 21.4 23.2
+            C21.2 21.4 20.8 21 19.2 20.7C20.8 20.4 21.2 20 21.4 18.2Z" fill="#fff" opacity=".85"/>
+    </svg>
+    <span class="wm">koscom</span>
+  </div>
+  <div class="vr" aria-hidden="true"></div>
+  <div class="brand">
+    <h1>PB 매뉴얼 데스크</h1>
+    <span class="sub">PowerBASE · 계좌</span>
   </div>
 
-<script>
-const TYPES = {
-  overview:    {ko:"화면개요",  color:"var(--t-overview)"},
-  description: {ko:"화면설명",  color:"var(--t-description)"},
-  glossary:    {ko:"용어찾기",  color:"var(--t-glossary)"},
-  related:     {ko:"관련화면",  color:"var(--t-related)"},
-  qa:          {ko:"질문보기",  color:"var(--t-qa)"},
-};
-const $ = s => document.querySelector(s);
-const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  <div class="top-right">
+    <span class="index-chip mono" id="index-chip" title="인덱스 정보">인덱스 로딩 중</span>
+    <button class="qa-toggle" id="qa-toggle" aria-pressed="false" title="품질 모드 전환 (Q)">QA</button>
+  </div>
+</header>
 
-// 유형 필터 UI
-const typesBox = $("#types");
-for (const [k,v] of Object.entries(TYPES)){
-  const l = document.createElement("label");
-  l.innerHTML = `<input type="checkbox" value="${k}" checked>
-    <span class="tdot" style="background:${v.color}"></span>${v.ko}
-    <span class="cnt" data-t="${k}">–</span>`;
-  typesBox.appendChild(l);
-}
+<div class="shell">
 
-// α 라이브 라벨
-$("#alpha").addEventListener("input", e => $("#alpha-val").textContent = (+e.target.value).toFixed(2));
+  <!-- 좌: 질문 이력 -->
+  <nav class="rail" id="rail" aria-label="질문 이력">
+    <button class="new-q" id="new-q">＋ 새 질문</button>
+    <div class="sess" id="sess"></div>
+    <p class="rail-empty" id="rail-empty">아직 질문 이력이 없어요.<br/>첫 질문을 남기면 여기에 쌓여요.</p>
+  </nav>
 
-// 메타 로딩
-fetch("/api/meta").then(r=>r.json()).then(m=>{
-  $("#m-count").textContent = m.count ?? "–";
-  const model = (m.embed_model||"").split("/").pop().replace("ko-sroberta-multitask","ko-sroberta");
-  $("#m-model").textContent = model || "–";
-  $("#m-dim").textContent = m.dim ?? "–";
-}).catch(()=>{});
-
-// 질의어 하이라이트
-function highlight(text, q){
-  let html = esc(text).replace(/►/g, '<span class="bullet">►</span>');
-  const toks = [...new Set((q.match(/[0-9A-Za-z]{2,}|[가-힣]{2,}/g)||[]))]
-                 .sort((a,b)=>b.length-a.length).slice(0,12);
-  for (const t of toks){
-    const re = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
-    html = html.replace(re, m=>`<mark>${m}</mark>`);
-  }
-  return html;
-}
-
-// dense(오렌지)↔sparse(진회색) 대비 바 — 시그니처
-function contrastBar(dense, sparse){
-  const d = Math.max(0, Math.min(1, dense)), s = Math.max(0, Math.min(1, sparse));
-  return `<div class="cbar" title="dense ${d.toFixed(2)} · sparse ${s.toFixed(2)}">
-    <div class="cbar-row"><span class="cbar-l">dense</span>
-      <div class="cbar-track"><i class="cbar-fill dense" style="--w:${(d*100).toFixed(0)}%"></i></div></div>
-    <div class="cbar-row"><span class="cbar-l">sparse</span>
-      <div class="cbar-track"><i class="cbar-fill sparse" style="--w:${(s*100).toFixed(0)}%"></i></div></div>
-  </div>`;
-}
-
-function slip(h, idx){
-  const t = TYPES[h.chunk_type] || {ko:h.chunk_type,color:"#666"};
-  const path = h.section_path;
-  const trail = path.map((seg,i)=>{
-    const cls = i===0 ? "seg root" : (i===path.length-1 ? "seg leaf" : "seg");
-    const sep = i<path.length-1 ? '<span class="sep">›</span>' : '';
-    return `<span class="${cls}">${esc(seg)}</span>${sep}`;
-  }).join("");
-  const url = h.source_url;
-  return `<article class="slip" id="slip-${h.rank}" style="--i:${Math.min(idx||0, 8)}">
-    <div class="tab"><span class="rk">${String(h.rank).padStart(2,"0")}</span><span class="rk-l">RANK</span></div>
-    <div class="body">
-      <div class="top">
-        <span class="badge" style="background:${t.color}"><span class="b-dot"></span>${t.ko}</span>
-        <div class="gauge">
-          ${contrastBar(h.dense, h.sparse)}
-          <span class="sc" title="혼합 점수">${h.combined.toFixed(2)}</span>
-        </div>
-      </div>
-      <div class="trail">${trail}</div>
-      <p class="text">${highlight(h.text, curQuery)}</p>
-      <div class="foot">
-        <span class="code">${esc(h.screen_id)}</span>
-        <span class="no">[${esc(h.screen_no)}]</span>
-        <a href="${esc(url)}" target="_blank" rel="noopener">원문 매뉴얼 ↗</a>
-      </div>
+  <!-- 중: 대화 스레드 -->
+  <main class="stage">
+    <div class="thread-wrap" id="thread-wrap">
+      <section class="hero" id="hero">
+        <h2>PowerBASE 계좌 매뉴얼,<br/>무엇이든 물어보세요</h2>
+        <p>답은 항상 매뉴얼 근거와 함께 드려요.</p>
+        <div class="chips" id="samples"></div>
+      </section>
+      <div class="thread" id="thread"></div>
     </div>
-  </article>`;
-}
 
-// 답변 내 [S1] 인용을 클릭 가능한 칩으로 변환 (하단 슬립으로 스크롤)
-function linkifyCites(text){
-  return esc(text).replace(/\[S(\d+)\]/g,
-    (_,n)=>`<a class="cite" data-r="${n}" title="근거 #${n} 보기">[S${n}]</a>`);
-}
+    <div class="dock">
+      <form class="composer" id="composer">
+        <textarea id="q" rows="1" placeholder="매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
+        <button class="ask" id="ask" type="submit">질문하기</button>
+      </form>
+      <p class="dock-hint"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · 답변은 계좌 매뉴얼 안에서만 생성돼요</p>
+    </div>
+  </main>
 
-function renderAnswer(data){
-  const pane = $("#answer"); pane.hidden = false;
-  $("#a-q").textContent = data.query;
-  const mode = $("#a-mode");
-  if (data.used_llm){ mode.textContent = "AI 생성 · " + (data.backend||"").replace(/^.*:/,""); mode.classList.add("gen"); }
-  else { mode.textContent = "발췌 기반(로컬)"; mode.classList.remove("gen"); }
-  $("#a-txt").innerHTML = data.hits.length ? linkifyCites(data.answer)
-    : "매뉴얼에서 확인되지 않습니다.";
-  $("#a-foot").innerHTML =
-    `검색 <b>${data.search_ms}</b>ms · 생성 <b>${data.gen_ms}</b>ms · 근거 <b>${data.count}</b>건`;
-}
+  <!-- 우: 근거 패널 -->
+  <aside class="evidence" id="evidence" aria-label="근거 패널">
+    <div class="qa-panel" id="qa-panel" hidden>
+      <div class="qa-h">검색 계측 <span class="qa-stat mono" id="qa-stat"></span></div>
+      <div class="qa-row">
+        <label for="alpha">혼합 α</label>
+        <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.5" />
+        <output class="mono" id="alpha-v">0.50</output>
+      </div>
+      <div class="qa-scale"><span>BM25 키워드</span><span>Dense 의미</span></div>
+      <div class="qa-row">
+        <label for="tau">임계 τ</label>
+        <input type="range" id="tau" min="0" max="1" step="0.01" value="0.5" />
+        <output class="mono" id="tau-v">0.50</output>
+      </div>
+      <div class="qa-row">
+        <label for="topk">top-k</label>
+        <input type="number" id="topk" min="1" max="30" value="5" />
+        <span class="qa-gatemode mono" id="qa-gatemode"></span>
+      </div>
+      <div class="qa-types" id="qa-types"></div>
+      <p class="qa-gate" id="qa-gate"></p>
+    </div>
 
-let curQuery = "";
-async function run(){
-  const q = $("#q").value.trim();
-  if (!q) { $("#q").focus(); return; }
-  curQuery = q;
-  const alpha = $("#alpha").value;
-  const topk = $("#topk").value;
-  const types = [...typesBox.querySelectorAll("input:checked")].map(c=>c.value);
-  const btn = $("#run"); btn.disabled = true; btn.textContent = "답변 생성 중…";
-  $("#welcome").hidden = true;
-  // 답변창 로딩 상태
-  const pane = $("#answer"); pane.hidden = false; pane.classList.add("loading");
-  $("#a-q").textContent = q; $("#a-mode").textContent = "생성 중"; $("#a-mode").classList.remove("gen");
-  $("#a-txt").innerHTML = `<span class="dots">근거를 읽고 답변을 작성하는 중</span>`;
-  $("#a-foot").innerHTML = "";
-  try{
-    const params = new URLSearchParams({q, alpha, topk, types:types.join(",")});
-    const res = await fetch("/api/answer?"+params);
-    const data = await res.json();
-    renderResults(data, types.length);
-    renderAnswer(data);
-  }catch(e){
-    $("#a-txt").innerHTML = "서버에 연결할 수 없습니다. webapp.py 실행 여부를 확인하세요.";
-    $("#results").innerHTML = "";
-  }finally{
-    pane.classList.remove("loading");
-    btn.disabled = false; btn.textContent = "답변 생성 ▸";
-  }
-}
+    <div class="ev-head" id="ev-head" hidden>
+      <span class="ev-title">근거</span><b class="mono" id="ev-count"></b>
+      <span class="ev-sub" id="ev-sub"></span>
+    </div>
+    <div class="ev-map" id="ev-map" hidden></div>
+    <div class="ev-cards" id="ev-cards"></div>
+    <p class="ev-empty" id="ev-empty">질문하면 답의 근거가<br/>여기에 나타나요.</p>
+  </aside>
+</div>
 
-function renderResults(data, nTypes){
-  $("#results-label").hidden = false;
-  $("#s-stat").innerHTML =
-    `<b>${data.count}</b>건 · α=<b>${(+data.alpha).toFixed(2)}</b> · 유형 ${nTypes}/5`;
-  const box = $("#results");
-  if (!data.hits.length){
-    box.innerHTML = `<div class="empty"><div class="stamp">결과 없음</div>
-      <p>이 조건에서는 근거를 찾지 못했습니다. α를 낮춰 키워드 매칭을 강화하거나 유형 필터를 넓혀보세요.</p></div>`;
-    return;
-  }
-  box.innerHTML = data.hits.map(slip).join("");
-  const cnt = {}; data.hits.forEach(h=>cnt[h.chunk_type]=(cnt[h.chunk_type]||0)+1);
-  typesBox.querySelectorAll(".cnt").forEach(el=>{
-    const k = el.dataset.t; el.textContent = cnt[k] ? cnt[k] : "·";
-  });
-}
+<div class="scrim" id="scrim" hidden></div>
 
-// 인용 칩 클릭 → 해당 슬립으로 스크롤 + 하이라이트
-document.addEventListener("click", e=>{
-  const c = e.target.closest(".cite"); if(!c) return;
-  const el = document.getElementById("slip-"+c.dataset.r);
-  if(el){ el.scrollIntoView({behavior:"smooth",block:"center"});
-    el.classList.remove("hl"); void el.offsetWidth; el.classList.add("hl"); }
-});
-
-$("#run").addEventListener("click", run);
-$("#q").addEventListener("keydown", e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="Enter") run(); });
-window.addEventListener("load", ()=>$("#q").focus());
-</script>
+<script src="/app.js"></script>
 </body>
 </html>

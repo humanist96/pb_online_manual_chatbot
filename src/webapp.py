@@ -9,7 +9,8 @@
 
 API:
   GET /               → web/index.html
-  GET /api/meta       → 인덱스 메타(모델/차원/건수)
+  GET /styles.css 등  → web/ 하위 정적 자산(화이트리스트 확장자만)
+  GET /api/meta       → 인덱스 메타(모델/차원/건수) + 추천 질문 samples
   GET /api/search?q=&alpha=&topk=&types=
         → {query, alpha, topk, elapsed_ms, hits:[{..., combined, dense, sparse, rank}]}
 """
@@ -27,7 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import numpy as np
 import faiss
 
-from rag_common import embed, tokenize_ko, INDEX_DIR
+from rag_common import (embed, tokenize_ko, INDEX_DIR,
+                        rerank_scores, get_reranker, load_gate, RERANK_MODEL)
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -60,7 +62,40 @@ with open(INDEX_DIR / "meta.json", encoding="utf-8") as f:
     _meta = json.load(f)
 # 임베더 워밍업
 embed(["워밍업"])
-print(f"[webapp] ready: {len(_chunks)} chunks, model={_meta.get('embed_model')}", flush=True)
+# 관련도 게이트 설정 + 리랭커 워밍(없으면 코사인 폴백)
+_gate = load_gate(_meta)
+_RERANK_ON = get_reranker() is not None
+
+
+def _sample_questions(chunks: list[dict], limit: int = 8) -> list[str]:
+    """첫 화면 추천 질문 — qa 청크의 실제 질문(section_path 말단)에서 추출.
+    화면당 1개씩, 짧고 물음표로 끝나는 것만. 결정적 순서(청크 순서)."""
+    out, seen = [], set()
+    for c in chunks:
+        if c.get("chunk_type") != "qa" or c["screen_id"] in seen:
+            continue
+        q = (c.get("section_path") or [""])[-1].strip()
+        if q.endswith("?") and 10 <= len(q) <= 55:
+            out.append(q)
+            seen.add(c["screen_id"])
+        if len(out) >= limit:
+            break
+    return out
+
+
+_samples = _sample_questions(_chunks)
+
+# 정적 자산 서빙 화이트리스트 (web/ 하위, 경로 탈출 방지)
+_STATIC_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".woff2": "font/woff2",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+}
+print(f"[webapp] ready: {len(_chunks)} chunks, model={_meta.get('embed_model')}, "
+      f"rerank={'on' if _RERANK_ON else 'off'}", flush=True)
 
 
 def _minmax(x: np.ndarray) -> np.ndarray:
@@ -70,33 +105,69 @@ def _minmax(x: np.ndarray) -> np.ndarray:
     return (x - lo) / (hi - lo)
 
 
-def search(query: str, alpha: float, topk: int, types: set[str] | None):
+def search(query: str, alpha: float, topk: int, types: set[str] | None,
+           tau: float | None = None):
+    """하이브리드 검색 + 관련도 게이트.
+    1) 하이브리드(정규화 combined)로 후보 정렬 → 코사인 원점수(cos_floor)로 coarse 컷
+    2) 통과 후보를 리랭커로 정밀 재순위(있으면), 최종 신뢰도(confidence) 산출
+    3) confidence < τ 는 low_conf 로 '표시'(소프트 모드) — 결과는 보여주되 저신뢰 플래그
+    반환: (hits, gate). gate = {mode, tau, best, all_low}"""
     n = len(_chunks)
     qv = embed([query])
     dscore, didx = _index.search(qv, n)
-    dense = np.zeros(n, dtype="float32")
-    dense[didx[0]] = dscore[0]
+    dense_raw = np.zeros(n, dtype="float32")
+    dense_raw[didx[0]] = dscore[0]                      # 코사인 원점수 (절대 관련도)
     sparse = np.array(_bm25.get_scores(tokenize_ko(query)), dtype="float32")
-    dn, sn = _minmax(dense), _minmax(sparse)
+    dn, sn = _minmax(dense_raw), _minmax(sparse)
     combined = alpha * dn + (1 - alpha) * sn
 
-    order = np.argsort(-combined)
-    hits = []
-    for i in order:
+    # 1) 후보 풀: 하이브리드 상위 + 코사인 coarse 컷 (유형 필터 적용)
+    pool_size = max(topk, int(_gate["rerank_pool"]))
+    floor = float(_gate["cos_floor"])
+    pool = []
+    for i in np.argsort(-combined):
         c = _chunks[i]
         if types and c["chunk_type"] not in types:
             continue
+        if float(dense_raw[i]) < floor and len(pool) >= topk:
+            continue  # coarse 컷: 최소 topk 는 채우되 그 이하는 바닥 미만 제외
+        pool.append(int(i))
+        if len(pool) >= pool_size:
+            break
+
+    # 2) 리랭크 → 최종 신뢰도
+    rr = rerank_scores(query, [_chunks[i]["text"] for i in pool]) if pool else None
+    mode = "rerank" if rr is not None else "cosine"
+    tau_default = float(_gate["tau_rerank"] if mode == "rerank" else _gate["tau_cos"])
+    tau_eff = tau_default if tau is None else float(tau)
+
+    rows = []
+    for j, i in enumerate(pool):
+        cos = float(dense_raw[i])
+        conf = float(rr[j]) if rr is not None else cos
+        rows.append((i, conf, cos))
+    if mode == "rerank":
+        rows.sort(key=lambda x: -x[1])                 # 리랭커 점수로 최종 재순위
+    rows = rows[:topk]
+
+    hits = []
+    for r, (i, conf, cos) in enumerate(rows, 1):
+        c = _chunks[i]
         hits.append({
             **c,
             "combined": round(float(combined[i]), 4),
             "dense": round(float(dn[i]), 4),
             "sparse": round(float(sn[i]), 4),
+            "cos": round(cos, 4),                      # 코사인 원점수
+            "confidence": round(conf, 4),              # 게이트 판단 신뢰도
+            "low_conf": bool(conf < tau_eff),
+            "rank": r,
         })
-        if len(hits) >= topk:
-            break
-    for r, h in enumerate(hits, 1):
-        h["rank"] = r
-    return hits
+    best = max((h["confidence"] for h in hits), default=0.0)
+    gate = {"mode": mode, "tau": round(tau_eff, 4), "tau_default": round(tau_default, 4),
+            "best": round(best, 4),
+            "all_low": bool(hits and all(h["low_conf"] for h in hits))}
+    return hits, gate
 
 
 # ─────────────────────────── 답변 생성 (로컬) ───────────────────────────
@@ -229,8 +300,29 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             html = (WEB / "index.html").read_bytes()
             return self._send(200, html, "text/html; charset=utf-8")
+        ext = pathlib.PurePosixPath(path).suffix.lower()
+        if ext in _STATIC_TYPES:
+            try:
+                f = (WEB / path.lstrip("/")).resolve()
+                f.relative_to(WEB.resolve())          # 경로 탈출 방지
+                body = f.read_bytes()
+            except (ValueError, OSError):
+                return self._send(404, b"not found", "text/plain; charset=utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", _STATIC_TYPES[ext])
+            self.send_header("Content-Length", str(len(body)))
+            # 폰트/자산은 캐시 허용 (인덱스·API는 no-store 유지)
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            return self.wfile.write(body)
         if path == "/api/meta":
-            return self._json({**_meta, "count": len(_chunks)})
+            return self._json({**_meta, "count": len(_chunks),
+                               "samples": _samples,
+                               "reranker": RERANK_MODEL if _RERANK_ON else None,
+                               "gate": {"mode": "rerank" if _RERANK_ON else "cosine",
+                                        "tau": _gate["tau_rerank"] if _RERANK_ON else _gate["tau_cos"],
+                                        "tau_rerank": _gate["tau_rerank"],
+                                        "tau_cos": _gate["tau_cos"]}})
         if path == "/api/search":
             qs = urllib.parse.parse_qs(parsed.query)
             q = (qs.get("q", [""])[0]).strip()
@@ -238,14 +330,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "empty query"}, 400)
             alpha = float(qs.get("alpha", ["0.5"])[0])
             topk = int(qs.get("topk", ["5"])[0])
+            tau = qs.get("tau", [None])[0]
+            tau = float(tau) if tau not in (None, "") else None
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
             t0 = time.perf_counter()
-            hits = search(q, alpha, topk, types)
+            hits, gate = search(q, alpha, topk, types, tau)
             ms = round((time.perf_counter() - t0) * 1000, 1)
             return self._json({"query": q, "alpha": alpha, "topk": topk,
                                "types": sorted(types) if types else [],
-                               "elapsed_ms": ms, "count": len(hits), "hits": hits})
+                               "elapsed_ms": ms, "count": len(hits),
+                               "gate": gate, "hits": hits})
         if path == "/api/answer":
             qs = urllib.parse.parse_qs(parsed.query)
             q = (qs.get("q", [""])[0]).strip()
@@ -253,18 +348,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "empty query"}, 400)
             alpha = float(qs.get("alpha", ["0.5"])[0])
             topk = int(qs.get("topk", ["5"])[0])
+            tau = qs.get("tau", [None])[0]
+            tau = float(tau) if tau not in (None, "") else None
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
             t0 = time.perf_counter()
-            hits = search(q, alpha, topk, types)
+            hits, gate = search(q, alpha, topk, types, tau)
             search_ms = round((time.perf_counter() - t0) * 1000, 1)
             t1 = time.perf_counter()
-            ans = answer(q, hits)
+            # 게이트: 전부 저신뢰면 LLM 호출 없이 '확인되지 않음' (할루시네이션 차단)
+            if gate["all_low"]:
+                ans = {"answer": "매뉴얼에서 확인되지 않습니다. (관련도가 임계치 미만 — 아래 근거는 참고용)",
+                       "used_llm": False, "backend": "gated"}
+            else:
+                ans = answer(q, [h for h in hits if not h["low_conf"]] or hits)
             gen_ms = round((time.perf_counter() - t1) * 1000, 1)
             return self._json({"query": q, "alpha": alpha, "topk": topk,
                                "types": sorted(types) if types else [],
                                "search_ms": search_ms, "gen_ms": gen_ms,
-                               "count": len(hits), "hits": hits, **ans})
+                               "count": len(hits), "gate": gate, "hits": hits, **ans})
         return self._send(404, b"not found", "text/plain; charset=utf-8")
 
 
