@@ -5,11 +5,13 @@ _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))  # Vercel: 형제 
 import time
 from http.server import BaseHTTPRequestHandler
 
-from _common import search, scope_hint, answer, parse_qs, common_params, send_json
+from _common import authorized, search, scope_hint, answer, parse_qs, common_params, send_json
 
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if not authorized(self):
+            return send_json(self, {"error": "unauthorized"}, 401)
         p = parse_qs(self.path)
         q, topk, tau, scope, types = common_params(p)
         if not q:

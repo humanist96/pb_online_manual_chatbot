@@ -26,6 +26,7 @@ VEC_URL = os.environ.get("UPSTASH_VECTOR_REST_URL", "").rstrip("/")
 VEC_TOKEN = os.environ.get("UPSTASH_VECTOR_REST_TOKEN", "")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+ACCESS_KEY = os.environ.get("DEMO_ACCESS_KEY", "")
 GATE_TAU = float(os.environ.get("GATE_TAU", "0.70"))  # dense 코사인 보정치(무관 0.61~0.66 vs 정상 0.73+)
 DAILY_LIMIT = int(os.environ.get("ANSWER_DAILY_LIMIT", "300"))
 REDIS_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "").rstrip("/")
@@ -161,6 +162,16 @@ def answer(q: str, hits: list[dict]) -> dict:
         return {"answer": text, "used_llm": True, "backend": f"openai:{OPENAI_MODEL}"}
     except Exception:
         return {"answer": extractive_answer(hits), "used_llm": False, "backend": "extractive"}
+
+
+def authorized(handler) -> bool:
+    """접근키 게이트 — DEMO_ACCESS_KEY 설정 시 x-demo-key 헤더(또는 ?key=) 필수."""
+    if not ACCESS_KEY:
+        return True
+    if handler.headers.get("x-demo-key") == ACCESS_KEY:
+        return True
+    qs = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
+    return qs.get("key", [""])[0] == ACCESS_KEY
 
 
 def parse_qs(path: str) -> dict:

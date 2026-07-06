@@ -429,8 +429,13 @@ function newSession() {
 }
 
 /* ═══════════════ 질문 실행 (2단: search → answer) ═══════════════ */
-async function getJSON(url) {
-  const r = await fetch(url);
+async function getJSON(url, retried) {
+  const key = localStorage.getItem("pbdemo.key") || "";
+  const r = await fetch(url, { headers: key ? { "x-demo-key": key } : {} });
+  if (r.status === 401 && !retried) {
+    const k = prompt("접근 키를 입력하세요 (사내 담당자에게 문의)");
+    if (k) { localStorage.setItem("pbdemo.key", k.trim()); return getJSON(url, true); }
+  }
   if (!r.ok) throw new Error("http " + r.status);
   return r.json();
 }
@@ -795,7 +800,7 @@ renderThread();
 autoresize();
 qEl.focus();
 
-fetch("/api/meta").then(r => r.json()).then(m => {
+getJSON("/api/meta").then(m => {
   const model = (m.embed_model || "").split("/").pop();
   $("#index-chip").textContent = `${(m.count ?? 0).toLocaleString()} 청크 · ${model}`;
   $("#index-chip").title =
