@@ -718,6 +718,40 @@ curl -s localhost:8000/api/meta   <span class="c"># 헬스체크</span></pre></d
   <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
 </section>
 
+<section class="slide" data-title="보너스 — 무료 온라인 배포">
+  <div class="lab">STEP <i>⑥+</i> 보너스 — 무료 온라인 데모 배포</div>
+  <h1 class="head">서버리스로 <em>월 0원</em> 공개 데모 만들기</h1>
+  <div class="cols">
+    <div>
+      <p class="body">폐쇄망 밖 데모가 필요하면 — <b>원문 유출 없이</b>(합성 데이터) 무료 서버리스로 배포합니다. 무거운 모델은 전부 외부에 위임하는 구성:</p>
+      <div class="pipe mt2">
+        <div class="pnode"><div class="pt">Vercel</div><div class="ps">정적 UI + 얇은<br/>Python 함수(모델 0MB)</div></div>
+        <div class="parrow">›</div>
+        <div class="pnode hl"><div class="pt">Upstash Vector</div><div class="ps">하이브리드(내장 임베딩<br/>+BM25) — 검색 ~200ms</div></div>
+        <div class="parrow">›</div>
+        <div class="pnode"><div class="pt">OpenAI mini</div><div class="ps">답변 ~2초<br/>일일 상한 가드</div></div>
+      </div>
+      <div class="band mt3"><span class="bt">교훈</span><span class="bd">하이브리드 <b>융합 점수(DBSF)는 게이트로 부적합</b>(무관/유관 분포 겹침) — 게이트 판정만 dense 코사인 쿼리로 분리해 병렬 실행(τ=0.70 실측 보정).</span></div>
+      <div class="code out mt2"><div class="code-h"><span>실측 — 라이브 데모</span></div><pre><span class="o">pb-manual-desk-demo.vercel.app</span>
+검색 ~200ms · AI 답변 ~2초 · 월 고정비 0원
+합성 매뉴얼 832청크 — 스코프·모호성 배너 동일 UX</pre></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — 3계정 연결 후 (상세: deploy/online/README.md)</span></div><pre><span class="c"># Upstash 콘솔: Hybrid 인덱스(내장 임베딩+BM25) 생성</span>
+python deploy/online/gen_demo_data.py   <span class="c"># 합성 832청크</span>
+python deploy/online/ingest.py          <span class="c"># 업서트</span>
+cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
+      <div class="prompt mt2"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 — 이 배포를 만든 요청 (원문 요지)</span></div><pre>vercel 같은 무료 서버리스로 배포하고 성능
+문제가 없을 방안을 계획해 보자. 벡터DB 등을
+연계하려면 어떤 구성이 최선일까?
+(→ 계획 승인 후) 너가 직접 배포랑 빌드해주고
+내가 필요한 부문만 말해.</pre><div class="p-why"><b>왜:</b> 제약(무료·서버리스)과 관심사(벡터DB 연계)를 주고 계획을 먼저 받되, 실행은 위임하고 <b>사람이 필요한 지점(계정·키)만 요청받는다</b> — 에이전틱 협업의 전형.</div></div>
+      <div class="boundary mt2"><span class="bl">보안 원칙</span><span class="bs">사내 원문은 절대 공개망에 올리지 않는다 — 데모는 <b>합성 데이터 전용</b>, 키는 env로만.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
 <section class="slide" data-title="P3 체크포인트">
   <div class="kicker">Part 3 — 체크포인트</div>
   <h1 class="head">여기까지 완주했다면 — <em>전부 손으로 확인</em>됐어야 한다</h1>

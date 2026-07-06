@@ -15,7 +15,7 @@
 [![LLM](https://img.shields.io/badge/LLM-Ollama_|_Claude_CLI-e4670a)](#)
 [![Deploy](https://img.shields.io/badge/Deploy-Docker_|_systemd-2496ED?logo=docker&logoColor=white)](#)
 
-[⚡ 빠른 시작](#-quick-start-로컬) · [🎬 실전 시나리오](#-실전-시나리오-실측) · [🧭 UI/UX](#-uiux--매뉴얼-데스크) · [🐧 서버 배포](#-리눅스-서버-배포-프로덕션) · [❓ FAQ](#-faq)
+[🌐 라이브 데모](https://pb-manual-desk-demo.vercel.app) · [⚡ 빠른 시작](#-quick-start-로컬) · [🎬 실전 시나리오](#-실전-시나리오-실측) · [🧭 UI/UX](#-uiux--매뉴얼-데스크) · [🐧 서버 배포](#-리눅스-서버-배포-프로덕션) · [❓ FAQ](#-faq)
 
 </div>
 
@@ -60,6 +60,8 @@
 ![PB 매뉴얼 데스크](assets/console.png)
 
 *모호성 배너("근거가 여러 부문에 걸쳐 있어요") · 부문 레벨 근거 지도 · 컴포저의 범위 칩 — 전 부문 39,240청크 실화면*
+
+**🌐 직접 체험**: [pb-manual-desk-demo.vercel.app](https://pb-manual-desk-demo.vercel.app) — 합성 데이터(DemoBASE 832청크)로 동작하는 공개 데모. 스코프 칩·모호성 배너·근거 지도를 브라우저에서 바로 사용해 볼 수 있습니다(사내 원문 미포함).
 
 </div>
 
@@ -225,11 +227,18 @@ docker compose up -d        # → http://<서버IP>:8000
 > 이미지에는 **코드만** 포함되고, 색인(`./data`)·모델 캐시는 볼륨으로 주입됩니다(사내 데이터 보호).
 > 폐쇄망 자체완결 답변이 필요하면 `docker-compose.yml`의 **Ollama 서비스** 주석을 해제하세요.
 
+### 방식 C — 온라인 공개 데모 (무료 서버리스)
+
+사내 배포와 별개로, **합성 데이터**로 동작하는 공개 데모를 무료 스택으로 운영합니다:
+**Vercel Hobby**(정적+Python 함수) + **Upstash Vector**(하이브리드: 내장 임베딩+BM25, 검색 ~200ms)
++ **OpenAI gpt-4o-mini**(답변, 일일 상한 가드) — 월 고정비 0원. 절차는 [`deploy/online/README.md`](deploy/online/README.md).
+
 | 배포 파일 | 용도 |
 |---|---|
 | `deploy/install.sh` · `build.sh` · `run.sh` | 설치 · 색인 · 실행 |
 | `deploy/pb-chatbot.service` | systemd 유닛(자동 재시작) |
 | `Dockerfile` · `docker-compose.yml` | 컨테이너 배포 |
+| `deploy/online/` | 온라인 공개 데모(Vercel+Upstash, 합성 데이터) |
 | `requirements.lock.txt` · `Makefile` | 고정버전 설치 · 편의 명령 |
 
 ---
