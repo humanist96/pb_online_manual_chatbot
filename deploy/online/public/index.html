@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PB 매뉴얼 데스크 · DemoBASE 공개 데모</title>
+<link rel="stylesheet" href="/styles.css?v=2" />
+</head>
+<body class="is-empty">
+
+<header class="top">
+  <button class="icon-btn" id="nav-toggle" aria-label="질문 이력 열기/닫기">
+    <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="wordmark" aria-label="koscom">
+    <svg class="sym" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="kAI" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/>
+        </linearGradient>
+        <linearGradient id="kSteel" x1="28" y1="28" x2="6" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#20242b" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#20242b" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
+      <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kSteel)"/>
+      <rect x="1.6" y="1.6" width="24.8" height="12" rx="7.4" fill="#fff" opacity=".10"/>
+      <path d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4
+            C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
+      <path d="M21.4 18.2C21.6 20 22 20.4 23.6 20.7C22 21 21.6 21.4 21.4 23.2
+            C21.2 21.4 20.8 21 19.2 20.7C20.8 20.4 21.2 20 21.4 18.2Z" fill="#fff" opacity=".85"/>
+    </svg>
+    <span class="wm">koscom</span>
+  </div>
+  <div class="vr" aria-hidden="true"></div>
+  <div class="brand">
+    <h1>PB 매뉴얼 데스크</h1>
+    <span class="sub">DemoBASE · 합성 데이터 공개 데모</span>
+  </div>
+
+  <div class="top-right">
+    <span class="index-chip mono" id="index-chip" title="인덱스 정보">인덱스 로딩 중</span>
+    <button class="qa-toggle" id="qa-toggle" aria-pressed="false" title="품질 모드 전환 (Q)">QA</button>
+  </div>
+</header>
+
+<div class="shell">
+
+  <!-- 좌: 질문 이력 -->
+  <nav class="rail" id="rail" aria-label="질문 이력">
+    <button class="new-q" id="new-q">＋ 새 질문</button>
+    <div class="sess" id="sess"></div>
+    <p class="rail-empty" id="rail-empty">아직 질문 이력이 없어요.<br/>첫 질문을 남기면 여기에 쌓여요.</p>
+  </nav>
+
+  <!-- 중: 대화 스레드 -->
+  <main class="stage">
+    <div class="thread-wrap" id="thread-wrap">
+      <section class="hero" id="hero">
+        <h2>DemoBASE 매뉴얼,<br/>무엇이든 물어보세요</h2>
+        <p>답은 항상 매뉴얼 근거와 함께 드려요. — 이 데모는 <b>가상 시스템의 합성 데이터</b>로 동작합니다.</p>
+        <div class="chips" id="samples"></div>
+      </section>
+      <div class="thread" id="thread"></div>
+    </div>
+
+    <div class="dock">
+      <div class="scope-panel" id="scope-panel" hidden>
+        <div class="sp-head">
+          <b>질문 범위 선택</b>
+          <span class="sp-cur mono" id="sp-cur"></span>
+          <button type="button" class="sp-all" id="sp-all">전체로</button>
+          <button type="button" class="sp-close" id="sp-close" aria-label="닫기">✕</button>
+        </div>
+        <div class="sp-cols" id="sp-cols"></div>
+      </div>
+      <form class="composer" id="composer">
+        <button type="button" class="scope-chip" id="scope-chip" aria-haspopup="true"
+          title="질문 범위(브레드크럼) 선택 — 다른 부문 결과가 섞이지 않게 좁혀요">범위: 전체 ▾</button>
+        <textarea id="q" rows="1" placeholder="매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
+        <button type="button" class="precise" id="precise" aria-pressed="true" hidden
+          title="정밀 게이트(리랭커) — 켜면 관련도 판정이 정확(질문당 +10초 내외), 끄면 빠른 코사인 판정">정밀</button>
+        <button class="ask" id="ask" type="submit">질문하기</button>
+      </form>
+      <p class="dock-hint"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · 합성 데이터 데모 · 답변은 매뉴얼 안에서만 생성돼요</p>
+    </div>
+  </main>
+
+  <!-- 우: 근거 패널 -->
+  <aside class="evidence" id="evidence" aria-label="근거 패널">
+    <div class="qa-panel" id="qa-panel" hidden>
+      <div class="qa-h">검색 계측 <span class="qa-stat mono" id="qa-stat"></span></div>
+      <div class="qa-row">
+        <label for="alpha">혼합 α</label>
+        <input type="range" id="alpha" min="0" max="1" step="0.05" value="0.5" />
+        <output class="mono" id="alpha-v">0.50</output>
+      </div>
+      <div class="qa-scale"><span>BM25 키워드</span><span>Dense 의미</span></div>
+      <div class="qa-row">
+        <label for="tau">임계 τ</label>
+        <input type="range" id="tau" min="0" max="1" step="0.01" value="0.5" />
+        <output class="mono" id="tau-v">0.50</output>
+      </div>
+      <div class="qa-row">
+        <label for="topk">top-k</label>
+        <input type="number" id="topk" min="1" max="30" value="5" />
+        <span class="qa-gatemode mono" id="qa-gatemode"></span>
+      </div>
+      <div class="qa-types" id="qa-types"></div>
+      <p class="qa-gate" id="qa-gate"></p>
+    </div>
+
+    <div class="ev-head" id="ev-head" hidden>
+      <span class="ev-title">근거</span><b class="mono" id="ev-count"></b>
+      <span class="ev-sub" id="ev-sub"></span>
+    </div>
+    <div class="ev-map" id="ev-map" hidden></div>
+    <div class="ev-cards" id="ev-cards"></div>
+    <p class="ev-empty" id="ev-empty">질문하면 답의 근거가<br/>여기에 나타나요.</p>
+  </aside>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<script src="/app.js?v=2"></script>
+</body>
+</html>

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 로컬·오픈소스 전용 RAG Q&A 챗봇. 코스콤 원장시스템(PowerBASE)의 Adobe RoboHelp 온라인 매뉴얼 "계좌" 부문 HTML 토픽을 파싱하여 사내 담당자용 매뉴얼 챗봇을 만든다. AC250400 화면을 파일럿으로 파서를 검증하고 동일 파서로 계좌 섹션(`AC*.html`) 전체로 확장하는 구조.
 
-**핵심 제약(필수)**: 임베딩·리랭커·LLM 전부 로컬 오픈소스 모델. 외부 상용 API(Claude/OpenAI/Voyage 등) 일절 사용 금지 — 사내 폐쇄망·데이터 외부 유출 방지 목적. 이 저장소에 상용 API 호출 코드를 추가하면 안 된다. 유일한 예외는 webapp.py의 개발기 전용 claude CLI 백엔드(로컬에 설치된 CLI를 서브프로세스로 호출, 폐쇄망에서는 자동으로 비활성) — 이 예외를 확장하지 말 것.
+**핵심 제약(필수)**: 임베딩·리랭커·LLM 전부 로컬 오픈소스 모델. 외부 상용 API(Claude/OpenAI/Voyage 등) 일절 사용 금지 — 사내 폐쇄망·데이터 외부 유출 방지 목적. 이 저장소에 상용 API 호출 코드를 추가하면 안 된다. 예외는 둘뿐: ① webapp.py의 개발기 전용 claude CLI 백엔드(로컬 CLI 서브프로세스, 폐쇄망 자동 비활성) ② **`deploy/online/` 공개 데모 구역** — 합성 데이터(DemoBASE)만 다루는 온라인 데모로 Upstash Vector·OpenAI 등 외부 API 허용(사내 매뉴얼 원문·사내 배포와 완전 분리). 이 예외들을 구역 밖으로 확장하지 말 것.
 
 배경·설계 결정의 전체 맥락은 `기획.md`에 있다.
 
