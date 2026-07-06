@@ -217,12 +217,51 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
   <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
 </section>
 
+<section class="slide" data-title="bi-encoder vs cross-encoder">
+  <div class="kicker">Part 1 — 두 인코더의 차이</div>
+  <h1 class="head">사서와 심사위원 — <em>bi</em>-encoder vs <em>cross</em>-encoder</h1>
+  <p class="lede"><b>bi-encoder(임베딩)</b>는 서가를 미리 정리해 두고 후보를 빨리 뽑는 <b>사서</b>, <b>cross-encoder(리랭커)</b>는 뽑힌 후보를 질문과 함께 정독하고 점수를 매기는 <b>심사위원</b> — 그래서 <b>넓게는 bi(39,240청크 → 후보 32개), 좁게는 cross(32개만 정독)</b>로 분업합니다.</p>
+  <div class="cols mt3">
+    <div>
+      <div class="pipe">
+        <div class="pnode"><div class="pt">질문</div><div class="ps">인코더 A</div></div>
+        <div class="parrow">→</div>
+        <div class="pnode"><div class="pt">벡터 q</div><div class="ps">768차원</div></div>
+        <div class="parrow">↔</div>
+        <div class="pnode"><div class="pt">벡터 d</div><div class="ps">미리 색인해 둠</div></div>
+      </div>
+      <div class="cap">bi — 질문·문서를 <b>따로</b> 벡터화 후 코사인 비교. 두 탑은 서로의 단어를 보지 못한다</div>
+    </div>
+    <div>
+      <div class="pipe">
+        <div class="pnode hl"><div class="pt">질문 ⊕ 문서</div><div class="ps">쌍을 한 입력으로</div></div>
+        <div class="parrow">→</div>
+        <div class="pnode hl"><div class="pt">인코더 하나</div><div class="ps">모든 단어가 서로 어텐션</div></div>
+        <div class="parrow">→</div>
+        <div class="pnode hl"><div class="pt">점수 1개</div><div class="ps">sigmoid [0,1]</div></div>
+      </div>
+      <div class="cap">cross — 쌍을 <b>같이</b> 읽고 관련도 점수를 직접 출력. 벡터를 만들지 않는다</div>
+    </div>
+  </div>
+  <table class="tbl mt3" style="font-size:13.5px">
+    <tr><th style="width:12%;padding:7px 12px"></th><th style="padding:7px 12px">bi-encoder (1차 검색)</th><th style="padding:7px 12px">cross-encoder (리랭커)</th></tr>
+    <tr><td><b>입력</b></td><td>질문·문서를 <b>따로</b> 인코딩</td><td>질문+문서 <b>쌍을 한 번에</b> 인코딩</td></tr>
+    <tr><td><b>출력</b></td><td>임베딩 벡터 — 색인해 두면 <b>재사용</b></td><td>그 쌍의 점수 하나 — 재사용 불가</td></tr>
+    <tr><td><b>사전 계산</b></td><td>문서 벡터를 미리 색인, 질의 때 질문만 1회 인코딩</td><td>불가 — 질의마다 모든 쌍을 새로 계산</td></tr>
+    <tr><td><b>속도</b></td><td>39,240청크 전수 비교도 수십 ms</td><td>쌍당 수백 ms(CPU) — 후보 32개에 수 초</td></tr>
+    <tr><td><b>정확도</b></td><td>근사 — 단어 간 상호작용이 벡터로 뭉개짐</td><td>높음 — 질문↔문서 토큰이 직접 상호작용</td></tr>
+    <tr><td><b>역할</b></td><td>넓게 건져오기 (recall)</td><td>정밀하게 판정하기 (precision)</td></tr>
+  </table>
+  <div class="srcs">출처 · <a href="https://sbert.net/examples/applications/cross-encoder/README.html">Sentence Transformers — Cross-Encoders (비교 다이어그램 원출처)</a> · <a href="https://huggingface.co/BAAI/bge-reranker-v2-m3">BAAI — bge-reranker-v2-m3</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
 <section class="slide" data-title="리랭커와 관련도 게이트">
   <div class="kicker">Part 1 — 정밀 판정</div>
   <h1 class="head">리랭커 — 후보를 <em>다시 읽고</em> 점수 매기는 심판</h1>
   <div class="cols">
     <div>
-      <p class="body"><b>bi-encoder(임베딩)</b>는 질문과 문서를 따로 벡터화해 빠르지만 근사적입니다. <b>cross-encoder(리랭커)</b>는 질문+문서 쌍을 한 번에 읽고 관련도 점수를 직접 출력 — 느리지만 정확합니다. 그래서 <b>1차 검색은 임베딩, 상위 후보만 리랭커</b>로 재채점합니다.</p>
+      <p class="body">앞장의 분업을 실전 파이프라인으로 — <b>1차 검색(bi, 하이브리드)</b>이 후보 32개를 뽑으면, <b>리랭커(cross)</b>가 그 후보만 재채점해 최종 순위와 신뢰도를 만듭니다. 리랭커 점수는 <b>sigmoid로 [0,1]</b>에 매핑되어 확률처럼 임계값(τ)과 비교할 수 있습니다.</p>
       <div class="pipe mt3">
         <div class="pnode"><div class="pt">하이브리드 top-32</div><div class="ps">빠른 후보 수집</div></div>
         <div class="parrow">›</div>
@@ -233,9 +272,9 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
     </div>
     <div>
       <p class="body"><b>관련도 게이트</b> — 리랭커 점수가 임계치 τ 미만이면 LLM을 아예 호출하지 않고 "매뉴얼에서 확인되지 않았어요"로 답합니다. 지어낸 답을 <b>구조적으로 차단</b>하는 장치입니다.</p>
-      <div class="code out mt3"><div class="code-h"><span>우리 실측 (τ 자동 보정)</span></div><pre>τ = 0.506  <span class="c"># 도메인 내/외 질의 분포로 보정</span>
-도메인 내 질의 통과   95%
-무관 질의 거부       93%   <span class="c"># "점심 뭐 먹지" → 차단</span></pre></div>
+      <div class="code out mt3"><div class="code-h"><span>우리 실측 (전 부문 39,240청크 · τ 자동 보정)</span></div><pre>τ = 0.5507  <span class="c"># 도메인 내/외 질의 분포로 보정</span>
+도메인 내 질의 통과   84%
+무관 질의 거부       87%   <span class="c"># "점심 뭐 먹지" → 차단</span></pre></div>
     </div>
   </div>
   <div class="srcs">출처 · <a href="https://sbert.net/examples/applications/cross-encoder/README.html">Sentence Transformers — Cross-Encoders (bi vs cross 비교)</a> · <a href="https://huggingface.co/BAAI/bge-reranker-v2-m3">BAAI — bge-reranker-v2-m3 모델 카드</a></div>
@@ -732,9 +771,9 @@ curl -s localhost:8000/api/meta   <span class="c"># 헬스체크</span></pre></d
     <div>
       <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 (실제 사용 원문)</span></div><pre>리랭커 모델 다운로드해서 정밀 게이트로 켜줘</pre><div class="p-why"><b>왜:</b> 목표 상태(정밀 게이트 on)만 말해도, 모델 캐시→τ 보정→서버 반영→검증까지 Claude가 절차를 채운다.</div></div>
       <div class="code mt3"><div class="code-h"><span>ⓐ 셸 — τ 자동 보정</span></div><pre>.venv/bin/python src/calibrate_threshold.py --write</pre></div>
-      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (실측)</span></div><pre><span class="o">양성(도메인 내) min=0.501 중앙=0.714
-음성(무관)     min=0.500 max=0.509
-선택 τ = 0.506 → 통과 95% · 거부 93%</span></pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (전 부문 실측)</span></div><pre><span class="o">양성(도메인 내) min=0.501 중앙=0.714
+음성(무관)     min=0.500 max=0.618
+선택 τ = 0.5507 → 통과 84% · 거부 87%</span></pre></div>
     </div>
     <div>
       <p class="body"><b>원리</b> — 도메인 내 질의(매뉴얼 Q&amp;A·용어)와 무관 질의("점심 뭐 먹지")의 <b>신뢰도 분포를 겹쳐 보고</b>, 무관 질의를 목표 비율 이상 거부하는 최소 τ를 고릅니다. 결과는 meta.json에 기록되어 서버가 그대로 사용합니다.</p>
