@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KOSCOM RAG 실습 과정 — 로컬 RAG 챗봇, 직접 만들어봅시다</title>
+<link rel="stylesheet" href="edu.css" />
+</head>
+<body>
+<div id="progress"></div>
+<div id="pagenum">1 / 40</div>
+<div id="help"><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>T</kbd> 목차</div>
+<nav id="toc" aria-label="목차"><h2>목차</h2><ol></ol></nav>
+
+<!-- ═══════════ P0. 오리엔테이션 ═══════════ -->
+
+<section class="slide dark" data-title="표지">
+  <svg class="cover-spark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <defs><linearGradient id="kAI" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/></linearGradient></defs>
+    <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
+    <path d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
+  </svg>
+  <div class="kicker" style="color:#ff9a3d">KOSCOM 사내 교육 · 실습 과정</div>
+  <h1 class="cover-title">로컬 RAG 챗봇,<br/><em>직접</em> 만들어봅시다</h1>
+  <p class="cover-sub">PB 매뉴얼 데스크로 배우는 RAG × Claude Code —<br/>데이터 전처리부터 배포까지, 복사-붙여넣기로 따라 하는 반나절</p>
+  <div class="cover-meta"><span>2026. 07</span><span>대상 · 사내 개발자</span><span>이론 30% + 실습 70%</span></div>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="오늘 만들 것">
+  <div class="kicker">Orientation — 완성품 먼저</div>
+  <h1 class="head">오늘 여러분이 만들 것 — <em>근거를 대는</em> 매뉴얼 챗봇</h1>
+  <div class="cols">
+    <div>
+      <p class="lede">코스콤 원장시스템(PowerBASE) 매뉴얼 <b>전 부문(19부문)</b>에 자연어로 질문하면, <b>매뉴얼 원문 근거와 출처를 인용해</b> 답하는 챗봇입니다. 임베딩·검색·LLM 전부 로컬 — 폐쇄망에서 돌아갑니다.</p>
+      <div class="stats mt4" style="grid-template-columns:1fr 1fr">
+        <div class="stat"><div class="n">4,108</div><div class="t">화면 자동 색인</div><div class="s">19부문 · RoboHelp TOC 재귀</div></div>
+        <div class="stat"><div class="n">39,240</div><div class="t">검색 청크</div><div class="s">브레드크럼 1개 = 청크 1개</div></div>
+        <div class="stat alt"><div class="n">[S1]</div><div class="t">출처 인용 강제</div><div class="s">근거 없으면 답하지 않음</div></div>
+        <div class="stat ok"><div class="n">0</div><div class="t">외부 API 호출</div><div class="s">완전 로컬·오프라인</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="shot"><img src="images/ui-answer.png" alt="완성된 챗봇 답변 화면"/></div>
+      <div class="cap">완성 화면 — 답변의 <b>[S1]</b> 인용이 우측 근거 카드·근거 지도와 연동</div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="과정 로드맵">
+  <div class="kicker">Orientation — 로드맵</div>
+  <h1 class="head">반나절 로드맵 — 개념은 짧게, <em>손은 길게</em></h1>
+  <div class="steps mt2">
+    <span class="step on">P1 · RAG 개념 40분</span><span class="sarrow">›</span>
+    <span class="step on">P2 · Claude Code 30분</span><span class="sarrow">›</span>
+    <span class="step on">P3 · 실습: 챗봇 구축 90분</span><span class="sarrow">›</span>
+    <span class="step on">P4 · 심화: 검색 품질 30분</span>
+  </div>
+  <div class="cols mt4">
+    <div>
+      <p class="body"><b>P3 실습의 6단계</b> — 이 저장소의 실제 파이프라인을 그대로 따라갑니다.</p>
+      <div class="steps mt2" style="gap:8px">
+        <span class="step">① 환경</span><span class="sarrow">›</span>
+        <span class="step">② 전처리</span><span class="sarrow">›</span>
+        <span class="step">③ 청크</span><span class="sarrow">›</span>
+        <span class="step">④ 인덱스</span><span class="sarrow">›</span>
+        <span class="step">⑤ 챗봇·UI</span><span class="sarrow">›</span>
+        <span class="step">⑥ 배포</span>
+      </div>
+    </div>
+    <div>
+      <p class="body"><b>모든 실습 슬라이드는 3단 구성</b>입니다.</p>
+      <div class="checks mt2" style="grid-template-columns:1fr">
+        <div class="check"><span><b>ⓐ 셸 명령</b> — repo 루트에서 그대로 실행 (전부 실행 검증됨)</span></div>
+        <div class="check"><span><b>ⓑ Claude Code 프롬프트</b> — 복사해 붙여넣는 실전 프롬프트 + 왜 이렇게 쓰는지</span></div>
+        <div class="check"><span><b>ⓒ 기대 출력</b> — 성공했는지 판정하는 기준</span></div>
+      </div>
+      <div class="band mt3"><span class="bt">TIP</span><span class="bd">코드·프롬프트 블록에 마우스를 올리면 <b>복사 버튼</b>이 나타납니다.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="실습 환경 체크">
+  <div class="kicker">Orientation — 시작 전 점검</div>
+  <h1 class="head">실습 환경 체크리스트</h1>
+  <div class="cols">
+    <div>
+      <div class="checks" style="grid-template-columns:1fr">
+        <div class="check"><span><b>사내망 접속</b> — 매뉴얼 서버(211.255.203.234) 수집용</span></div>
+        <div class="check"><span><b>Python 3.12</b> + <b>uv</b> (패키지 관리자)</span></div>
+        <div class="check"><span><b>Claude Code CLI</b> 로그인 완료</span></div>
+        <div class="check"><span>RAM 8GB 이상 (GPU 불필요 — 전부 CPU)</span></div>
+        <div class="check"><span>(선택) <b>Ollama</b> — 없어도 추출형 폴백으로 동작</span></div>
+      </div>
+      <div class="band mt3"><span class="bt">주의</span><span class="bd">모델 최초 다운로드(임베딩 ~440MB)만 인터넷이 필요하고, 이후는 <b>완전 오프라인</b>으로 재실행됩니다.</span></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>셸 — 버전 확인</span></div><pre>git clone https://github.com/humanist96/pb_online_manual_chatbot.git
+cd pb_online_manual_chatbot
+
+python3 --version        <span class="c"># 3.12.x</span>
+uv --version             <span class="c"># 없으면: curl -LsSf https://astral.sh/uv/install.sh | sh</span>
+claude --version         <span class="c"># Claude Code CLI</span></pre></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<!-- ═══════════ P1. RAG 개념 ═══════════ -->
+
+<section class="slide dark" data-title="PART 1 — RAG 개념" data-part="Part 1 · RAG 개념">
+  <div class="part-no">PART 1 / 4</div>
+  <h1 class="cover-title" style="font-size:clamp(38px,4vw,56px)">RAG — 검색으로<br/><em>근거를 만드는</em> 생성</h1>
+  <p class="cover-sub">할루시네이션 · 파이프라인 · 임베딩 · BM25 · 하이브리드 · 리랭커 · 청킹</p>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="LLM의 한계와 할루시네이션">
+  <div class="kicker">Part 1 — 왜 RAG인가</div>
+  <h1 class="head">LLM은 유창하지만, <em>모르는 것도 유창하게</em> 답한다</h1>
+  <div class="cols">
+    <div>
+      <p class="lede">LLM의 지식은 학습 시점에 고정된 <b>파라미터 속 기억</b>입니다. 사내 원장 매뉴얼처럼 학습에 없던 지식을 물으면, 모른다고 하는 대신 그럴듯한 답을 지어냅니다 — <b>할루시네이션</b>.</p>
+      <p class="body mt3">금융 업무 매뉴얼에서 지어낸 답은 곧 <b>업무 사고</b>입니다. 대응 원칙은 두 가지 —</p>
+      <div class="checks mt2" style="grid-template-columns:1fr">
+        <div class="check"><span>답의 근거를 <b>외부 지식(매뉴얼 원문)에서 검색해 공급</b>한다 → RAG</span></div>
+        <div class="check"><span>근거가 없으면 <b>"모른다"고 답하게 허용</b>한다 → 관련도 게이트</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="shot"><img src="images/ui-gated.png" alt="근거가 없을 때 확인되지 않는다고 답하는 화면"/></div>
+      <div class="cap">우리가 만들 챗봇 — 근거가 임계치 미만이면 <b>"매뉴얼에서 확인되지 않았어요"</b></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://cloud.google.com/use-cases/retrieval-augmented-generation?hl=ko">Google Cloud — 검색 증강 생성(RAG)이란</a> · <a href="https://platform.claude.com/docs/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Anthropic — Reduce hallucinations</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="RAG 파이프라인">
+  <div class="kicker">Part 1 — 큰 그림</div>
+  <h1 class="head">RAG 파이프라인 — <em>다섯 단계</em>가 전부다</h1>
+  <div class="pipe mt3">
+    <div class="pnode"><div class="pt">① 문서 수집</div><div class="ps">매뉴얼 HTML 4,108화면</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">② 청크 분할</div><div class="ps">검색 단위로 쪼개기<br/>(품질의 절반이 여기서)</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">③ 임베딩·색인</div><div class="ps">벡터(FAISS)+키워드(BM25)</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">④ 검색</div><div class="ps">질문과 가장 관련된<br/>청크 top-k</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">⑤ 증강 생성</div><div class="ps">근거를 프롬프트에 주입,<br/>출처 인용 강제</div></div>
+  </div>
+  <p class="lede mt4">원 논문(Lewis et al., 2020)의 표현으로는 — LLM의 <b>파라미터 기억</b>에 벡터 인덱스라는 <b>비파라미터 기억</b>을 결합하는 것. 지식이 바뀌면 모델을 다시 학습하는 대신 <b>인덱스만 다시 빌드</b>하면 됩니다. 매뉴얼 개정 대응이 곧 이 구조의 존재 이유입니다.</p>
+  <div class="srcs">출처 · <a href="https://aws.amazon.com/ko/what-is/retrieval-augmented-generation/">AWS — RAG란 무엇인가요(한국어)</a> · <a href="https://arxiv.org/abs/2005.11401">Lewis et al. 2020 (arXiv:2005.11401)</a> · <a href="https://blogs.nvidia.co.kr/blog/what-is-retrieval-augmented-generation/">NVIDIA 코리아 — RAG란</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="임베딩과 벡터 검색">
+  <div class="kicker">Part 1 — 의미 검색</div>
+  <h1 class="head">임베딩 — 문장을 <em>좌표</em>로 바꾸면 의미를 잴 수 있다</h1>
+  <div class="cols">
+    <div>
+      <p class="lede">임베딩 모델은 문장을 수백 차원의 벡터로 바꿉니다. <b>의미가 비슷한 문장은 가까운 좌표</b>에 놓입니다. "계좌 개설"과 "신규 계좌 만들기"는 단어가 달라도 벡터로는 이웃입니다.</p>
+      <p class="body mt3">유사도는 <b>코사인 유사도</b>(두 벡터 사이 각도)로 잽니다. 벡터를 길이 1로 정규화하면 <b>내적 = 코사인</b>이 되어 FAISS의 내적 검색을 그대로 코사인 검색으로 쓸 수 있습니다 — 우리 인덱스가 정확히 이 방식입니다.</p>
+    </div>
+    <div>
+      <div class="code out"><div class="code-h"><span>개념 — 우리 스택에 대응</span></div><pre>임베딩 모델   jhgan/ko-sroberta-multitask (한국어, 768차원)
+색인/검색    FAISS IndexFlatIP  <span class="c"># 정규화 내적 = 코사인</span>
+질의 흐름    질문 → 임베딩 → 전체 청크와 코사인 → 상위 k</pre></div>
+      <div class="band mt3"><span class="bt">직관</span><span class="bd">임베딩이 처음이라면 Jay Alammar의 일러스트 자료가 표준 교육 자료입니다 — 성격 특성을 숫자 몇 개로 표현하는 것부터 시작해 그림만으로 이해됩니다.</span></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://jalammar.github.io/illustrated-word2vec/">Jay Alammar — The Illustrated Word2vec</a> · <a href="https://github.com/facebookresearch/faiss/wiki/MetricType-and-distances">FAISS 공식 위키 — MetricType and distances</a> · <a href="https://sbert.net/examples/applications/semantic-search/README.html">Sentence Transformers — Semantic Search</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="BM25 키워드 검색">
+  <div class="kicker">Part 1 — 키워드 검색</div>
+  <h1 class="head">BM25 — 화면번호 <em>"2473"</em>은 의미가 아니라 <em>글자</em>로 찾는다</h1>
+  <div class="cols">
+    <div>
+      <p class="lede">의미 검색은 "2473", "AC250400", "AUP" 같은 <b>정확한 코드·고유명사</b>에 약합니다. 이런 질의는 고전적 키워드 검색 <b>BM25</b>가 강합니다.</p>
+      <p class="body mt3">BM25 점수의 세 재료 — ① <b>IDF</b>: 드문 단어일수록 가중 ② <b>TF 포화</b>: 같은 단어 반복의 효과는 점점 줄어듦(k1) ③ <b>문서 길이 정규화</b>: 긴 문서가 부당하게 유리하지 않게(b).</p>
+      <div class="band mt3"><span class="bt">한국어</span><span class="bd">한국어는 교착어라 어절 그대로는 매칭이 어렵습니다. 이 프로젝트는 형태소 사전 없이 <b>음절 unigram+bigram</b>으로 토크나이즈해 사전 의존성을 없앴습니다(폐쇄망 친화).</span></div>
+    </div>
+    <div>
+      <div class="code out"><div class="code-h"><span>개념 — 토크나이즈 예</span></div><pre>"변경사용자 확인"
+ → 음절 unigram  변 경 사 용 자 확 인
+ → 음절 bigram   변경 경사 사용 용자 확인
+"AC250400" → 영숫자 소문자 토큰  ac250400
+
+<span class="c"># 핵심 규칙: 인덱스 빌드와 질의가 반드시
+# 같은 토크나이저를 써야 한다 (rag_common.py 한 곳에)</span></pre></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables">Elastic — Practical BM25 Part 2</a> · <a href="https://www.elastic.co/blog/nori-the-official-elasticsearch-plugin-for-korean-language-analysis">Elastic — Nori: 한국어 분석의 난점</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="하이브리드 검색">
+  <div class="kicker">Part 1 — 두 검색의 결합</div>
+  <h1 class="head">하이브리드 — 의미와 키워드를 <em>α로 섞는다</em></h1>
+  <div class="pipe mt2">
+    <div class="pnode"><div class="pt">Dense (의미)</div><div class="ps">"신규 계좌 만들기"도 찾음<br/>코드·고유명사에 약함</div></div>
+    <div class="parrow">+</div>
+    <div class="pnode"><div class="pt">Sparse (BM25)</div><div class="ps">"2473" 정확 매칭<br/>동의어·의역에 약함</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">점수 정규화 후 가중합</div><div class="ps">combined = α·dense + (1−α)·sparse</div></div>
+  </div>
+  <p class="lede mt4">두 점수는 스케일이 다르므로 <b>각각 min-max 정규화</b>한 뒤 합칩니다. α=1이면 의미만, α=0이면 키워드만, 0.5가 균형 — 우리 챗봇의 <b>RAG_ALPHA</b> 파라미터이자, P4에서 직접 실험할 QA 모드의 α 슬라이더입니다. Anthropic 실측으로도 임베딩+BM25 결합은 검색 실패율을 유의미하게 낮춥니다(-49%, 리랭킹까지 -67%).</p>
+  <div class="srcs">출처 · <a href="https://weaviate.io/blog/hybrid-search-explained">Weaviate — Hybrid Search Explained</a> · <a href="https://www.pinecone.io/learn/hybrid-search-intro/">Pinecone — Getting Started with Hybrid Search</a> · <a href="https://www.anthropic.com/news/contextual-retrieval">Anthropic — Contextual Retrieval</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="리랭커와 관련도 게이트">
+  <div class="kicker">Part 1 — 정밀 판정</div>
+  <h1 class="head">리랭커 — 후보를 <em>다시 읽고</em> 점수 매기는 심판</h1>
+  <div class="cols">
+    <div>
+      <p class="body"><b>bi-encoder(임베딩)</b>는 질문과 문서를 따로 벡터화해 빠르지만 근사적입니다. <b>cross-encoder(리랭커)</b>는 질문+문서 쌍을 한 번에 읽고 관련도 점수를 직접 출력 — 느리지만 정확합니다. 그래서 <b>1차 검색은 임베딩, 상위 후보만 리랭커</b>로 재채점합니다.</p>
+      <div class="pipe mt3">
+        <div class="pnode"><div class="pt">하이브리드 top-32</div><div class="ps">빠른 후보 수집</div></div>
+        <div class="parrow">›</div>
+        <div class="pnode hl"><div class="pt">리랭커 재채점</div><div class="ps">bge-reranker-v2-m3<br/>쌍 점수 → sigmoid [0,1]</div></div>
+        <div class="parrow">›</div>
+        <div class="pnode"><div class="pt">게이트 τ</div><div class="ps">최고점 &lt; τ →<br/>"확인되지 않음"</div></div>
+      </div>
+    </div>
+    <div>
+      <p class="body"><b>관련도 게이트</b> — 리랭커 점수가 임계치 τ 미만이면 LLM을 아예 호출하지 않고 "매뉴얼에서 확인되지 않았어요"로 답합니다. 지어낸 답을 <b>구조적으로 차단</b>하는 장치입니다.</p>
+      <div class="code out mt3"><div class="code-h"><span>우리 실측 (τ 자동 보정)</span></div><pre>τ = 0.506  <span class="c"># 도메인 내/외 질의 분포로 보정</span>
+도메인 내 질의 통과   95%
+무관 질의 거부       93%   <span class="c"># "점심 뭐 먹지" → 차단</span></pre></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://sbert.net/examples/applications/cross-encoder/README.html">Sentence Transformers — Cross-Encoders (bi vs cross 비교)</a> · <a href="https://huggingface.co/BAAI/bge-reranker-v2-m3">BAAI — bge-reranker-v2-m3 모델 카드</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="청킹 전략">
+  <div class="kicker">Part 1 — 품질의 절반</div>
+  <h1 class="head">청킹 — 이 프로젝트의 답: <em>브레드크럼 1개 = 청크 1개</em></h1>
+  <p class="lede">고정 길이로 자르면 문맥이 끊깁니다. 이 프로젝트는 매뉴얼의 <b>문서 구조(계층)</b>를 청크 단위로 삼았습니다 — 매뉴얼 트리의 경로 하나가 청크 하나이자 <b>출처 단위</b>가 됩니다.</p>
+  <div class="crumbs mt3">
+    <span class="crumb">지점계좌서비스약정등록내역</span><span class="csep">›</span>
+    <span class="crumb">화면설명</span><span class="csep">›</span>
+    <span class="crumb">조회 결과</span><span class="csep">›</span>
+    <span class="crumb">관리자/ 변경사용자</span><span class="csep">›</span>
+    <span class="crumb last">변경사용자 : 서비스종류별 등록·해지 처리한 사용자ID</span>
+  </div>
+  <div class="cols mt4">
+    <div>
+      <p class="body">임베딩 텍스트에 <b>경로 전체를 보존</b>합니다 — <code style="font-family:var(--mono);font-size:13.5px;background:var(--mist);padding:2px 6px;border-radius:4px">"경로 &gt; ... : 설명"</code>. 청크만 보고도 "어느 화면의 어느 항목인지"를 검색기가 알 수 있습니다.</p>
+    </div>
+    <div>
+      <p class="body">Anthropic의 Contextual Retrieval 실측이 이 설계를 정량적으로 뒷받침합니다 — <b>청크에 문맥을 보존하면 검색 실패율 35%↓</b>, BM25 하이브리드까지 49%↓, 리랭킹까지 67%↓.</p>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://www.pinecone.io/learn/chunking-strategies/">Pinecone — Chunking Strategies</a> · <a href="https://www.anthropic.com/news/contextual-retrieval">Anthropic — Contextual Retrieval</a> · <a href="https://platform.claude.com/docs/en/docs/build-with-claude/citations">Anthropic — Citations(출처 인용 응답)</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="Part 1 정리">
+  <div class="kicker">Part 1 — 정리</div>
+  <h1 class="head">개념 정리 — 우리 챗봇의 <em>다섯 가지 설계 결정</em></h1>
+  <table class="tbl mt2">
+    <tr><th style="width:22%">개념</th><th>일반론</th><th>이 프로젝트의 결정</th></tr>
+    <tr><td><b>청킹</b></td><td>고정 길이/문장/재귀 분할</td><td>문서 계층 그대로 — 브레드크럼 1개 = 청크 1개, 경로를 임베딩에 보존</td></tr>
+    <tr><td><b>의미 검색</b></td><td>임베딩 + 벡터 DB</td><td>ko-sroberta(한국어) + FAISS 정규화 내적(=코사인)</td></tr>
+    <tr><td><b>키워드 검색</b></td><td>BM25 + 형태소 분석기</td><td>BM25 + 음절 n-gram (사전 없이, 폐쇄망 친화)</td></tr>
+    <tr><td><b>결합</b></td><td>RRF 또는 가중합</td><td>min-max 정규화 후 α 가중합 (기본 0.5)</td></tr>
+    <tr><td><b>신뢰성</b></td><td>인용·거부 프롬프트</td><td>[S#] 인용 강제 + 리랭커 게이트 τ — 근거 없으면 LLM 미호출</td></tr>
+  </table>
+  <div class="boundary mt4"><span class="bl">보안 경계</span><span class="bs">위 전 과정이 <b>사내 서버 안에서 완결</b> — 외부 상용 API 0건, 매뉴얼 원문 반출 0건.</span></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<!-- ═══════════ P2. Claude Code 기초 ═══════════ -->
+
+<section class="slide dark" data-title="PART 2 — Claude Code 기초" data-part="Part 2 · Claude Code">
+  <div class="part-no">PART 2 / 4</div>
+  <h1 class="cover-title" style="font-size:clamp(38px,4vw,56px)">Claude Code —<br/><em>같이 짓는</em> 개발</h1>
+  <p class="cover-sub">이 챗봇은 Claude Code로 만들어졌습니다. 그 방법 자체가 교재입니다.</p>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="설치와 시작">
+  <div class="kicker">Part 2 — 시작</div>
+  <h1 class="head">설치 5분 — 터미널에서 <em>claude</em> 한 마디</h1>
+  <div class="cols">
+    <div>
+      <div class="code"><div class="code-h"><span>셸 — 설치와 첫 실행</span></div><pre><span class="c"># 설치 (macOS/Linux/WSL)</span>
+curl -fsSL https://claude.ai/install.sh | bash
+
+<span class="c"># 프로젝트 폴더에서 시작</span>
+cd pb_online_manual_chatbot
+claude
+
+<span class="c"># 프로젝트 지침 파일 자동 생성 (최초 1회)</span>
+&gt; /init</pre></div>
+    </div>
+    <div>
+      <p class="body">Claude Code는 터미널에서 도는 <b>에이전틱 코딩 도구</b>입니다 — 파일을 읽고, 고치고, 명령을 실행하고, 결과를 보고 다시 고칩니다. 여러분은 <b>무엇을·왜</b>를 말하고, 검증 기준을 줍니다.</p>
+      <div class="checks mt3" style="grid-template-columns:1fr">
+        <div class="check"><span><kbd>Shift</kbd>+<kbd>Tab</kbd> — 권한 모드 전환(플랜 모드 포함)</span></div>
+        <div class="check"><span><code style="font-family:var(--mono)">claude -p "질문"</code> — 헤드리스 단발 실행(파이프 가능)</span></div>
+        <div class="check"><span><code style="font-family:var(--mono)">@파일경로</code> — 특정 파일을 대화에 참조</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://code.claude.com/docs/en/quickstart">Claude Code — Quickstart</a> · <a href="https://code.claude.com/docs/en/common-workflows">Claude Code — Common workflows</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="CLAUDE.md">
+  <div class="kicker">Part 2 — 프로젝트 지침</div>
+  <h1 class="head">CLAUDE.md — 매 세션 자동 주입되는 <em>프로젝트 헌법</em></h1>
+  <div class="cols">
+    <div>
+      <p class="body">저장소 루트의 <b>CLAUDE.md</b>는 모든 세션 시작 시 Claude에게 자동으로 읽힙니다. 빌드 명령·아키텍처·<b>어겨선 안 되는 제약</b>을 적어두면 매번 다시 설명할 필요가 없습니다.</p>
+      <p class="body mt2">원칙: <b>코드에서 유추할 수 없는 것만</b>, 짧고 구체적으로. 이 저장소의 실물이 좋은 예입니다 →</p>
+      <div class="band mt3"><span class="bt">효과</span><span class="bd">이 제약 덕분에 Claude가 상용 API를 쓰는 코드를 <b>제안조차 하지 않게</b> 됩니다 — 보안 요구가 도구 수준에서 강제됩니다.</span></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>CLAUDE.md — 이 저장소 실제 발췌</span></div><pre>**핵심 제약(필수)**: 임베딩·리랭커·LLM 전부
+로컬 오픈소스 모델. 외부 상용 API(Claude/OpenAI/
+Voyage 등) 일절 사용 금지 — 사내 폐쇄망·데이터
+외부 유출 방지 목적. 이 저장소에 상용 API 호출
+코드를 추가하면 안 된다.
+
+파싱 규칙 변경 시 반드시 tests/test_parse.py의
+골든값을 확인할 것.</pre></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://code.claude.com/docs/en/memory">Claude Code — Memory(CLAUDE.md)</a> · <a href="https://code.claude.com/docs/en/settings">Claude Code — Settings</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="플랜 모드">
+  <div class="kicker">Part 2 — 탐색 → 계획 → 구현</div>
+  <h1 class="head">플랜 모드 — 큰 작업은 <em>계획을 먼저 승인</em>받는다</h1>
+  <div class="cols">
+    <div>
+      <p class="body">플랜 모드(<kbd>Shift</kbd>+<kbd>Tab</kbd>)에서 Claude는 <b>읽기만 하고</b> 수정하지 않습니다 — 코드를 탐색해 계획을 제안하고, 여러분이 승인해야 구현이 시작됩니다.</p>
+      <p class="body mt2">바로 코딩시키면 엉뚱한 문제를 풀 수 있습니다. <b>파서 전면 수정, UI 개편처럼 파급이 큰 작업일수록</b> 계획 검토가 이득입니다. (한 문장으로 설명되는 작은 수정은 계획 생략.)</p>
+    </div>
+    <div>
+      <p class="body"><b>실전 사례</b> — 이 프로젝트의 UI 전면 개편이 정확히 이 흐름이었습니다.</p>
+      <div class="prompt mt2"><div class="p-h"><span class="p-tag">실전 프롬프트 ① — 플랜 모드에서</span></div><pre>현재 작업 폴더의 내용을 보고 상업 수준의 미려한
+UI/UX 계획안을 작성해줘. 필요하면 유사한 기능을
+대표하는 상업 사이트를 벤치마킹해서 계획해줘.</pre><div class="p-why"><b>왜:</b> 산출물을 "계획안"으로 못박고 벤치마킹 기준까지 줘서, 코드 수정 없이 설계만 먼저 받는다.</div></div>
+      <div class="prompt mt2"><div class="p-h"><span class="p-tag">실전 프롬프트 ② — 계획 승인 후</span></div><pre>계획대로 개편해줘</pre><div class="p-why"><b>왜:</b> 승인된 계획이 곧 명세가 되므로, 실행 지시는 이 한 줄이면 충분하다.</div></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://code.claude.com/docs/en/permission-modes">Claude Code — Permission modes(플랜 모드)</a> · <a href="https://code.claude.com/docs/en/best-practices">Claude Code — Best practices</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="서브에이전트">
+  <div class="kicker">Part 2 — 병렬과 위임</div>
+  <h1 class="head">서브에이전트 — <em>여러 Claude</em>에게 나눠 맡긴다</h1>
+  <div class="cols">
+    <div>
+      <p class="body">서브에이전트는 <b>별도 컨텍스트 창</b>에서 도는 하위 Claude입니다. 대규모 코드 탐색·웹 리서치처럼 읽을 것이 많은 일을 위임하면, 메인 대화의 컨텍스트를 아끼면서 <b>여러 작업을 병렬</b>로 돌릴 수 있습니다.</p>
+      <div class="band mt3"><span class="bt">메타</span><span class="bd">지금 보고 있는 <b>이 교육자료가 그 산물</b>입니다 — RAG 개념 / 검색·리랭킹 / Claude Code 문서, 서브에이전트 3개가 병렬로 공신력 소스 26건을 수집·검증했습니다.</span></div>
+    </div>
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">프롬프트 패턴 — 병렬 리서치 위임</span></div><pre>서브에이전트 3개를 병렬로 띄워서 조사해줘.
+① RAG 개념의 공신력 있는 교육 자료
+② 하이브리드 검색·리랭커 공식 문서
+③ Claude Code 공식 문서
+각 소스는 실제 접속 확인(200) 후
+표(제목·발행처·URL·활용 포인트)로 정리해줘.</pre><div class="p-why"><b>왜:</b> 독립적인 조사 축으로 쪼개 주고, 검증 기준(접속 확인)과 산출 형식(표)을 명시하면 병렬 품질이 담보된다.</div></div>
+    </div>
+  </div>
+  <div class="srcs">출처 · <a href="https://code.claude.com/docs/en/sub-agents">Claude Code — Subagents</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="프롬프트 3원칙">
+  <div class="kicker">Part 2 — 프롬프트 패턴</div>
+  <h1 class="head">좋은 프롬프트의 <em>3원칙</em> — 오늘 실습 내내 쓴다</h1>
+  <div class="cols3 mt2">
+    <div>
+      <p class="body" style="font-weight:760;color:var(--ink)">① 검증 수단을 함께 준다</p>
+      <p class="body mt1">"만들어줘"가 아니라 <b>테스트·실행 확인까지</b> 요구. Claude가 스스로 pass/fail 루프를 돈다.</p>
+      <div class="code out mt2"><div class="code-h"><span>예</span></div><pre>…파서를 만들어줘.
+골든값 assert 테스트도
+함께 만들고 통과시켜줘.</pre></div>
+    </div>
+    <div>
+      <p class="body" style="font-weight:760;color:var(--ink)">② 탐색 → 계획 → 구현</p>
+      <p class="body mt1">파급이 큰 작업은 <b>플랜 모드로 계획 먼저</b>. 승인된 계획이 명세가 된다.</p>
+      <div class="code out mt2"><div class="code-h"><span>예</span></div><pre>(플랜 모드) 계획안을
+작성해줘 → 검토·승인 →
+"계획대로 진행해줘"</pre></div>
+    </div>
+    <div>
+      <p class="body" style="font-weight:760;color:var(--ink)">③ 맥락과 제약을 명시한다</p>
+      <p class="body mt1">대상 파일·재현 증상·<b>지켜야 할 제약</b>(폐쇄망·로컬 온리)을 지정하면 재작업이 줄어든다.</p>
+      <div class="code out mt2"><div class="code-h"><span>예</span></div><pre>폐쇄망이라 외부 API 금지.
+표준 라이브러리만 사용.
+기존 tokenize_ko를 재사용해.</pre></div>
+    </div>
+  </div>
+  <div class="band mt4"><span class="bt">실습 규칙</span><span class="bd">P3의 모든 프롬프트 카드가 이 3원칙으로 작성돼 있습니다 — 복사해 쓰면서 <b>패턴 자체를 몸에 익히는 것</b>이 목표입니다.</span></div>
+  <div class="srcs">출처 · <a href="https://code.claude.com/docs/en/best-practices">Claude Code — Best practices</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview">Anthropic — Prompt engineering overview</a></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<!-- ═══════════ P3. 핸즈온 ═══════════ -->
+
+<section class="slide dark" data-title="PART 3 — 핸즈온: 챗봇 구축" data-part="Part 3 · 핸즈온">
+  <div class="part-no">PART 3 / 4 — 핸즈온 90분</div>
+  <h1 class="cover-title" style="font-size:clamp(38px,4vw,56px)">데이터 전처리부터 배포까지,<br/><em>여섯 단계</em></h1>
+  <div class="steps mt5">
+    <span class="step">① 환경</span><span class="sarrow">›</span>
+    <span class="step">② 전처리</span><span class="sarrow">›</span>
+    <span class="step">③ 청크</span><span class="sarrow">›</span>
+    <span class="step">④ 인덱스</span><span class="sarrow">›</span>
+    <span class="step">⑤ 챗봇·UI</span><span class="sarrow">›</span>
+    <span class="step">⑥ 배포</span>
+  </div>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="① 환경 구축">
+  <div class="lab">STEP <i>①</i> 환경 구축 — 10분</div>
+  <h1 class="head">uv로 가상환경, CPU 휠로 <em>가볍게</em></h1>
+  <div class="cols">
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — repo 루트에서</span></div><pre>uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python \
+    -r requirements.txt \
+    --extra-index-url https://download.pytorch.org/whl/cpu</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 확인</span></div><pre>.venv/bin/python -c "import faiss, sentence_transformers; print('OK')"
+<span class="o">OK</span></pre></div>
+    </div>
+    <div>
+      <p class="body"><b>왜 이 구성인가</b></p>
+      <div class="checks mt2" style="grid-template-columns:1fr">
+        <div class="check"><span><b>uv</b> — pip보다 수십 배 빠른 설치, 재현 가능한 잠금(requirements.lock.txt)</span></div>
+        <div class="check"><span><b>CPU 전용 torch 휠</b> — GPU 없는 사내 서버 표준, 용량 절감</span></div>
+        <div class="check"><span>의존성 전부 로컬/오픈소스 — CLAUDE.md 제약과 일치</span></div>
+      </div>
+      <div class="band mt3"><span class="bt">단축</span><span class="bd"><code style="font-family:var(--mono)">make install</code> 한 줄로 동일 작업이 실행됩니다(deploy/install.sh).</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="② 전처리 — 목표">
+  <div class="lab">STEP <i>②</i> 데이터 전처리 — 목표</div>
+  <h1 class="head">RoboHelp HTML → <em>구조를 살린</em> 트리</h1>
+  <div class="cols">
+    <div>
+      <p class="lede">원본은 Adobe RoboHelp가 뱉은 HTML — 의미 구조가 <b>CSS class 이름에만</b> 남아 있습니다. 이 계층을 복원하는 파서가 <b>전체 품질의 90%</b>를 결정합니다.</p>
+      <div class="code out mt3"><div class="code-h"><span>복원 규칙 (CLAUDE.md에 명문화)</span></div><pre>div.title_box     대분류 (화면개요/화면설명/…)
+div.Step00_icon   중분류
+div.Step1_Nxx     단계
+table tr          th=항목 / td=목록
+li.icon01/icon02  깊이로 부모-자식 복원
+td "용어 : 설명"  첫 콜론 분리 (용어 40자 제한)</pre></div>
+    </div>
+    <div>
+      <p class="body">파일럿 화면 <b>AC250400</b>(지점계좌서비스약정등록내역) 하나로 파서를 검증한 뒤, 같은 파서로 전 부문 4,108화면에 확장하는 전략입니다 — <b>1화면 검증 → 전량 적용</b>. 실제로 19개 부문이 이 방법으로 확장됐습니다.</p>
+      <div class="crumbs mt3">
+        <span class="crumb">AC250400.html</span><span class="csep">›</span>
+        <span class="crumb">parse.py</span><span class="csep">›</span>
+        <span class="crumb last">구조화 트리(dict) + 골든 테스트</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="② 전처리 — 실습 A: 수집">
+  <div class="lab">STEP <i>②</i> 실습 A — 원본 수집</div>
+  <h1 class="head">크롤 — 파일럿 1장, 그 다음 <em>전량</em></h1>
+  <div class="cols">
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — 파일럿 1화면</span></div><pre>.venv/bin/python src/crawl.py AC250400
+.venv/bin/python src/parse.py data/html/AC250400.html</pre></div>
+      <div class="code mt2"><div class="code-h"><span>ⓐ 셸 — 계좌 섹션 전량 (사내망)</span></div><pre>.venv/bin/python src/crawl.py --from-file data/account_topics.txt</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 — parse.py stderr 통계</span></div><pre><span class="o">breadcrumbs=41 glossary=8 related=4 qa=2</span>  <span class="c"># 값은 개정판에 따라 다를 수 있음</span></pre></div>
+    </div>
+    <div>
+      <div class="band"><span class="bt">주의</span><span class="bd">전량 수집은 <b>사내망(211.255.203.234)</b>이 필요합니다. 파일럿 HTML은 저장소에 캐시돼 있어 외부에서도 파서 실습이 가능합니다.</span></div>
+      <div class="prompt mt3"><div class="p-h"><span class="p-tag">ⓑ CLAUDE CODE 프롬프트 — 크롤러가 없다면</span></div><pre>RoboHelp 온라인 매뉴얼의 목차(toc*.js)를 재귀
+파싱해서 계좌 섹션(AC*.html) 토픽 전체 목록을
+만들고, 각 HTML을 data/html/에 내려받는
+src/crawl.py를 만들어줘. 재실행 시 이미 받은
+파일은 건너뛰게(캐시) 해줘.</pre><div class="p-why"><b>왜:</b> 입력(목차 구조)·출력(저장 경로)·재실행 동작(캐시)까지 명시 — 유추에 맡기는 부분을 줄인다.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="② 전처리 — 실습 B: 파서">
+  <div class="lab">STEP <i>②</i> 실습 B — 파서를 Claude Code로</div>
+  <h1 class="head">파서 구축 프롬프트 — <em>규칙과 테스트를 함께</em> 준다</h1>
+  <div class="cols">
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ CLAUDE CODE 프롬프트 — 파서 구축 (이 프로젝트 실전 패턴)</span></div><pre>data/html/AC250400.html은 RoboHelp로 만든 원장
+매뉴얼 화면이야. 이걸 구조화 트리(dict)로 복원하는
+src/parse.py를 만들어줘.
+
+- 계층 규칙: div.title_box(대분류) → div.Step00_icon
+  (중분류) → div.Step1_Nxx(단계) → table tr(th=항목,
+  td=목록). li.icon01/li.icon02 깊이로 부모-자식 복원.
+- td 텍스트는 첫 콜론(:)에서 용어/설명 분리하되
+  용어 40자 제한으로 오탐 방지.
+- 검증: 골든값 assert 테스트 tests/test_parse.py를
+  함께 만들어줘. pytest 없이 python 단독 실행,
+  통과할 때까지 스스로 수정해.</pre><div class="p-why"><b>왜:</b> 3원칙 총동원 — 구조 규칙(맥락·제약) + 골든 테스트(검증 수단)를 주면 Claude가 통과할 때까지 스스로 반복한다.</div></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — 테스트 실행</span></div><pre>.venv/bin/python tests/test_parse.py</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력</span></div><pre><span class="o">PASS test_breadcrumb_paths
+PASS test_glossary_count
+…
+5/5 passed</span></pre></div>
+      <div class="band mt3"><span class="bt">회귀 방지</span><span class="bd">이 골든 테스트가 이후 모든 파서 수정의 <b>안전선</b>이 됩니다. "파싱 규칙 변경 시 반드시 골든값 확인"을 CLAUDE.md에 남겨두는 것까지가 한 세트.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="③ 청크 — 목표와 실습">
+  <div class="lab">STEP <i>③</i> 청크 생성 — 15분</div>
+  <h1 class="head">트리 → 청크 — <em>경로를 임베딩에</em> 심는다</h1>
+  <div class="cols">
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ CLAUDE CODE 프롬프트 — 청크 변환기</span></div><pre>parse.py의 구조화 트리를 검색 청크로 바꾸는
+src/to_chunks.py를 만들어줘.
+
+- 브레드크럼 1개 = 청크 1개 = 검색/출처 단위.
+- embed_text는 "경로 &gt; … : 설명" 형태로 전체
+  경로를 보존해줘 — 검색 정확도와 출처 근거를
+  같이 강화하는 게 목적이야.
+- chunk_type은 path[1] 섹션명으로 결정
+  (overview/description/glossary/related/qa).
+- 출력: data/chunks.jsonl (화면 메타 포함).</pre><div class="p-why"><b>왜:</b> "왜 경로를 보존하는지" 의도까지 주면, 세부 구현 판단(구분자·메타 필드)이 의도에 정렬된다.</div></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸</span></div><pre>.venv/bin/python src/to_chunks.py data/html/*.html
+head -1 data/chunks.jsonl | python3 -m json.tool | head -8</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (필드 확인)</span></div><pre><span class="o">{
+  "id": "AC110100#0000",
+  "screen_id": "AC110100",
+  "chunk_type": "description",
+  "section_path": ["고객정보조회", "화면설명", …],
+  "embed_text": "고객정보조회 &gt; 화면설명 &gt; … : …"
+}</span></pre></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="④ 인덱스 — 목표와 실습">
+  <div class="lab">STEP <i>④</i> 인덱스 빌드 — 15분</div>
+  <h1 class="head">하이브리드 인덱스 — <em>같은 토크나이저</em>가 생명이다</h1>
+  <div class="cols">
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ CLAUDE CODE 프롬프트 — 인덱스 빌더</span></div><pre>data/chunks.jsonl로 하이브리드 인덱스를 빌드하는
+src/build_index.py를 만들어줘.
+
+- dense: sentence-transformers 임베딩 →
+  FAISS 정규화 내적(=코사인).
+- sparse: BM25. 한국어 토크나이저는 음절
+  unigram+bigram, 영숫자는 소문자 토큰.
+- 토크나이저는 빌드와 질의가 반드시 같은 구현을
+  쓰도록 src/rag_common.py로 분리해.
+- 임베딩 모델명을 meta.json에 기록해서 질의 때
+  모델 불일치를 감지할 수 있게 해줘.
+- 폐쇄망 제약: 전부 로컬 오픈소스만.</pre><div class="p-why"><b>왜:</b> 흔한 실패 모드(토크나이저·모델 불일치)를 제약으로 선언 — 나중에 찾기 어려운 버그를 설계 단계에서 차단한다.</div></div>
+    </div>
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸</span></div><pre>.venv/bin/python src/build_index.py
+ls data/index/</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력</span></div><pre><span class="o">bm25.pkl  chunks.json  dense.faiss  meta.json</span></pre></div>
+      <div class="band mt3"><span class="bt">규칙</span><span class="bd"><b>인덱스 빌드 때와 질의 때 임베딩 모델이 반드시 일치</b>해야 합니다. meta.json 기록이 그 안전장치입니다.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="⑤ 챗봇 — 목표">
+  <div class="lab">STEP <i>⑤</i> 챗봇·웹 UI — 목표</div>
+  <h1 class="head">검색 → 프롬프트 주입 → <em>인용 강제</em></h1>
+  <div class="pipe mt2">
+    <div class="pnode"><div class="pt">질문</div><div class="ps">"변경사용자 항목은<br/>어디서 확인하나요?"</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">하이브리드 검색</div><div class="ps">dense+sparse 정규화<br/>α 가중합 → top-k</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">프롬프트 주입</div><div class="ps">[근거] 청크들 + 규칙:<br/>"근거에 없으면 확인되지<br/>않는다고 답하라"</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode"><div class="pt">로컬 LLM</div><div class="ps">Ollama qwen2.5<br/>(없으면 추출형 폴백)</div></div>
+    <div class="parrow">›</div>
+    <div class="pnode hl"><div class="pt">답변+[S1]</div><div class="ps">문장마다 출처 마커<br/>클릭 → 근거 카드</div></div>
+  </div>
+  <p class="lede mt4">시스템 프롬프트가 핵심입니다 — <b>"[근거]에 있는 내용만 사용해 답하고, 근거마다 [S1],[S2] 마커를 붙이며, 없으면 '매뉴얼에서 확인되지 않습니다'라고 답하라."</b> 생성의 자유를 근거 안으로 묶는 한 문단입니다.</p>
+  <div class="srcs">참고 · Anthropic Citations 문서(출처 인용 응답의 모범 사례) — sources.md A9</div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="⑤ 챗봇 — 실습 A: 실행">
+  <div class="lab">STEP <i>⑤</i> 실습 A — 챗봇 실행</div>
+  <h1 class="head">첫 질문을 던져보자</h1>
+  <div class="cols">
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — CLI 단발 질의</span></div><pre>.venv/bin/python src/chatbot.py "변경사용자 항목은 어디서 확인하나요?"</pre></div>
+      <div class="code mt2"><div class="code-h"><span>ⓐ 셸 — 웹 UI 실행</span></div><pre>.venv/bin/python src/webapp.py
+<span class="c"># → http://localhost:8000</span></pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 확인 — 인덱스 메타</span></div><pre>curl -s http://localhost:8000/api/meta
+<span class="o">{"count": 4443, "embed_model": "jhgan/ko-sroberta-multitask", …}</span></pre></div>
+    </div>
+    <div>
+      <div class="shot"><img src="images/ui-hero.png" alt="웹 UI 첫 화면"/></div>
+      <div class="cap">첫 화면 — 추천 질문 칩은 매뉴얼의 <b>실제 Q&amp;A 청크</b>에서 자동 추출</div>
+      <div class="band mt2"><span class="bt">폴백</span><span class="bd">Ollama가 없어도 동작합니다 — <b>추출형 폴백</b>이 근거 청크를 출처와 함께 그대로 제시합니다.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="⑤ 챗봇 — 실습 B: UI와 디버깅">
+  <div class="lab">STEP <i>⑤</i> 실습 B — UI 개편과 디버깅 프롬프트</div>
+  <h1 class="head">UI도, 버그도 — <em>실전 프롬프트</em> 그대로</h1>
+  <div class="cols">
+    <div>
+      <p class="body">이 프로젝트의 웹 UI(대화 스레드·근거 지도·QA 모드)는 P2에서 본 <b>플랜 모드 2단 프롬프트</b>("계획안 작성 → 계획대로 개편")로 만들어졌습니다. 운영 중 문제는 아래 한 줄로 —</p>
+      <div class="prompt mt2"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 — 디버깅 (실제 사용 원문)</span></div><pre>현재 테스트 페이지에서 기능이 동작하지 않는다
+원인 파악하고 해결하고 웹페이지 띄워줘</pre><div class="p-why"><b>왜:</b> 증상 + 기대 결과(원인·해결·실행)까지 한 문장에 — Claude가 진단→수정→재기동→검증을 한 턴에 끝낸다.</div></div>
+      <div class="prompt mt2"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 — 기능 추가</span></div><pre>웹상에서 rerank를 on/off 할 수 있도록 수정해줘.
+서버 재시작 없이 요청 단위로 전환되면 좋겠어.</pre><div class="p-why"><b>왜:</b> 동작 요건(요청 단위, 무재시작)을 제약으로 명시 — 구현 방식(파라미터 vs 환경변수)이 저절로 결정된다.</div></div>
+    </div>
+    <div>
+      <div class="shot"><img src="images/ui-map.png" alt="근거 지도"/></div>
+      <div class="cap"><b>근거 지도</b> — 근거들의 브레드크럼 경로를 병합한 트리, 인용 [S#]과 양방향 하이라이트</div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="⑥ 배포">
+  <div class="lab">STEP <i>⑥</i> 배포 — 15분</div>
+  <h1 class="head">systemd 또는 Docker — <em>데이터는 이미지 밖에</em></h1>
+  <div class="cols">
+    <div>
+      <div class="code"><div class="code-h"><span>ⓐ 셸 — 방식 A: venv + systemd</span></div><pre>bash deploy/install.sh   <span class="c"># venv+의존성</span>
+bash deploy/build.sh     <span class="c"># 수집→청크→색인 (사내망)</span>
+bash deploy/run.sh       <span class="c"># 오프라인 기본 실행</span>
+
+sudo cp deploy/pb-chatbot.service /etc/systemd/system/
+sudo systemctl enable --now pb-chatbot</pre></div>
+      <div class="code mt2"><div class="code-h"><span>ⓐ 셸 — 방식 B: Docker</span></div><pre>docker compose up -d
+curl -s localhost:8000/api/meta   <span class="c"># 헬스체크</span></pre></div>
+    </div>
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ CLAUDE CODE 프롬프트 — 배포 패키징</span></div><pre>이 챗봇을 사내 리눅스 서버에 배포할 수 있게
+패키징해줘. venv+systemd와 Docker 두 방식 다.
+
+- 이미지에는 코드만 담고, 색인(data/)과 모델
+  캐시는 볼륨으로 주입해 — 사내 데이터를
+  이미지에 넣지 않는 게 보안 요구야.
+- HF_HUB_OFFLINE=1 등 오프라인 강제를 기본으로.
+- 헬스체크는 /api/meta로.</pre><div class="p-why"><b>왜:</b> 보안 요구(데이터 미포함)를 아키텍처 제약으로 선언하면, 볼륨 설계·헬스체크까지 그 제약에 맞춰 나온다.</div></div>
+      <div class="boundary mt3"><span class="bl">사내 완결</span><span class="bs">오프라인 강제 env가 기본 — 모델 캐시 후 <b>네트워크 없이 재실행</b>됩니다.</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="P3 체크포인트">
+  <div class="kicker">Part 3 — 체크포인트</div>
+  <h1 class="head">여기까지 완주했다면 — <em>전부 손으로 확인</em>됐어야 한다</h1>
+  <div class="checks mt3">
+    <div class="check"><span><b>tests/test_parse.py</b> 5/5 통과 (골든 테스트)</span></div>
+    <div class="check"><span><b>data/chunks.jsonl</b> 생성 — embed_text에 경로 보존 확인</span></div>
+    <div class="check"><span><b>data/index/</b> 4파일 (dense.faiss·bm25.pkl·chunks.json·meta.json)</span></div>
+    <div class="check"><span>CLI 질의 응답에 <b>[S1] 인용 마커</b> 포함</span></div>
+    <div class="check"><span>웹 UI <b>/api/meta</b>에 청크 수·모델명 표시</span></div>
+    <div class="check"><span>(방식 A/B 중 택1) 서비스로 상시 실행 + 헬스체크 200</span></div>
+  </div>
+  <div class="band mt4"><span class="bt">막혔다면</span><span class="bd">그 상태 그대로 Claude Code에게 — <b>"○○ 단계에서 이런 출력이 나왔어. 원인 파악하고 해결해줘"</b> + 에러 원문 붙여넣기. 트러블슈팅 FAQ는 38쪽.</span></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<!-- ═══════════ P4. 심화 ═══════════ -->
+
+<section class="slide dark" data-title="PART 4 — 심화: 검색 품질" data-part="Part 4 · 심화">
+  <div class="part-no">PART 4 / 4</div>
+  <h1 class="cover-title" style="font-size:clamp(38px,4vw,56px)">검색 품질을<br/><em>눈으로</em> 튜닝한다</h1>
+  <p class="cover-sub">α 실험 · τ 게이트 보정 · 브레드크럼 스코프 · 품질 평가</p>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="α 실험 — QA 모드">
+  <div class="kicker">Part 4 — 혼합 가중치</div>
+  <h1 class="head">실습: <em>Q 키</em>를 눌러 QA 모드 — α를 움직여보자</h1>
+  <div class="cols">
+    <div>
+      <p class="body">웹 UI에서 <kbd>Q</kbd>를 누르면 <b>QA 계측 모드</b> — α·τ·top-k 슬라이더와 근거별 dense/sparse 기여도가 나타납니다.</p>
+      <div class="code out mt3"><div class="code-h"><span>실험 절차</span></div><pre>1. 질문: "지점계좌서비스약정 등록내역"   <span class="c"># 키워드형</span>
+   α=0 (BM25만) ↔ α=1 (의미만) 로 각각 검색
+2. 질문: "계좌 만들 때 뭘 등록해야 하나"  <span class="c"># 의역형</span>
+   같은 비교 반복
+3. 근거 카드의 dense/sparse 막대로
+   어느 축이 이겼는지 관찰 → α=0.5의 근거를 체감</pre></div>
+    </div>
+    <div>
+      <div class="shot"><img src="images/ui-qa.png" alt="QA 계측 모드"/></div>
+      <div class="cap">QA 모드 — 계측 패널(α·τ·top-k)과 근거별 <b>dense/sparse 기여도</b></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="τ 게이트 보정">
+  <div class="kicker">Part 4 — 관련도 게이트</div>
+  <h1 class="head">τ는 감이 아니라 <em>분포로</em> 정한다</h1>
+  <div class="cols">
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 (실제 사용 원문)</span></div><pre>리랭커 모델 다운로드해서 정밀 게이트로 켜줘</pre><div class="p-why"><b>왜:</b> 목표 상태(정밀 게이트 on)만 말해도, 모델 캐시→τ 보정→서버 반영→검증까지 Claude가 절차를 채운다.</div></div>
+      <div class="code mt3"><div class="code-h"><span>ⓐ 셸 — τ 자동 보정</span></div><pre>.venv/bin/python src/calibrate_threshold.py --write</pre></div>
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (실측)</span></div><pre><span class="o">양성(도메인 내) min=0.501 중앙=0.714
+음성(무관)     min=0.500 max=0.509
+선택 τ = 0.506 → 통과 95% · 거부 93%</span></pre></div>
+    </div>
+    <div>
+      <p class="body"><b>원리</b> — 도메인 내 질의(매뉴얼 Q&amp;A·용어)와 무관 질의("점심 뭐 먹지")의 <b>신뢰도 분포를 겹쳐 보고</b>, 무관 질의를 목표 비율 이상 거부하는 최소 τ를 고릅니다. 결과는 meta.json에 기록되어 서버가 그대로 사용합니다.</p>
+      <div class="band mt3"><span class="bt">트레이드오프</span><span class="bd">리랭커 게이트는 CPU에서 질문당 +5~15초. 웹 UI의 <b>[정밀 검색↔빠른 검색] 토글</b>이 요청 단위로 전환해 줍니다(코사인 게이트 ~0.1초).</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="품질 평가 관점">
+  <div class="kicker">Part 4 — 평가</div>
+  <h1 class="head">품질은 <em>시나리오</em>로 잰다 — 실측 4종</h1>
+  <table class="tbl mt2">
+    <tr><th style="width:16%">유형</th><th style="width:42%">질문 (실측)</th><th>판정 기준</th></tr>
+    <tr><td><b>항목 위치</b></td><td>"변경사용자 항목은 어디서 확인하나요?"</td><td>화면·항목 특정 + 인용 — 신뢰도 0.73으로 통과</td></tr>
+    <tr><td><b>업무 절차</b></td><td>"고객신분 이상 등록 내역의 해지는 어느 화면에서?"</td><td>처리 화면[2473]과 조회 전용[2474]를 구분해 답변</td></tr>
+    <tr><td><b>원인 설명</b></td><td>"2007년 이전 계좌는 개설자ID가 왜 안 나오나?"</td><td>매뉴얼 Q&amp;A 근거로 원인(PB 도입일) 설명</td></tr>
+    <tr><td><b>무관 차단</b></td><td>"오늘 점심 뭐 먹지"</td><td>best 0.50 &lt; τ 0.506 → <b>LLM 미호출</b>, 확인 불가 답변</td></tr>
+  </table>
+  <p class="body mt3">확장하려면 — 시나리오 세트를 늘려 <b>Recall@k·MRR</b>을 자동 채점하는 평가 스크립트를 만들 차례입니다. 이것도 좋은 Claude Code 실습 과제: <i>"data/chunks.jsonl의 qa 청크에서 (질문, 정답 화면) 쌍 100개를 뽑아 Recall@5를 재는 스크립트를 만들어줘"</i>.</p>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="브레드크럼 스코프 — 교차 오염 방지">
+  <div class="kicker">Part 4 — 전 부문 확장의 핵심</div>
+  <h1 class="head">부문이 19개가 되면 — <em>스코프가 품질이다</em></h1>
+  <div class="cols">
+    <div>
+      <p class="body">"수수료", "약정 해지" 같은 용어는 여러 부문에 존재합니다. 전 부문 색인에서 스코프 없는 검색은 <b>타 부문 근거가 섞이는 교차 오염</b>을 낳습니다. 세 가지 장치로 막습니다.</p>
+      <div class="checks mt3" style="grid-template-columns:1fr">
+        <div class="check"><span><b>스코프 칩</b> — 컴포저 [범위]로 부문&gt;중분류&gt;화면 선택, 요청당 <code style="font-family:var(--mono);font-size:12.5px">scope=</code> 경로 접두 필터</span></div>
+        <div class="check"><span><b>모호성 배너</b> — 근거가 여러 부문에 걸치면 시스템이 먼저 묻고, 칩 클릭 한 번으로 범위 확정·재검색</span></div>
+        <div class="check"><span><b>근거 지도 좁히기</b> — 지도 노드 hover → 그 경로로 즉시 재검색. 지도가 곧 필터</span></div>
+      </div>
+      <div class="code out mt3"><div class="code-h"><span>실측 (전 부문 39,240청크)</span></div><pre>부문 정확도(top1)  97.9%  ·  Recall@5  100%  (94문항)
+동음이의 20문항 중 75%에서 모호성 감지 → 배너 노출</pre></div>
+    </div>
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 — 이 기능을 만든 요청 (원문 요지)</span></div><pre>계좌에서 전 부문으로 확장하자. 브레드크럼을
+유사하게 제공하고, 질문을 브레드크럼에서
+필터링·선택할 수 있게 하는 것이 핵심이다.
+타 분야 검색결과와 겹치지 않도록 사용자가
+피드백을 받는 것이 핵심 가치다.
+이를 위한 계획을 작성해줘.</pre><div class="p-why"><b>왜:</b> 기능 나열이 아니라 <b>핵심 가치(겹치지 않음+사용자 피드백)</b>를 선언 — 설계 전체가 그 가치를 중심으로 정렬된다.</div></div>
+      <div class="band mt3"><span class="bt">게이트 재보정</span><span class="bd">코퍼스가 9배 커지면 신뢰도 분포가 이동합니다 — τ를 <b>반드시 재보정</b>하세요(1차 0.607은 과엄격 → 목표 조정으로 0.551 채택).</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="확장 아이디어">
+  <div class="kicker">Part 4 — 다음 단계</div>
+  <h1 class="head">여러분의 부문으로 — <em>확장 로드맵</em></h1>
+  <div class="steps mt2">
+    <span class="step on">계좌 파일럿</span><span class="sarrow">›</span>
+    <span class="step on">전 부문 (완료 — 19부문·39,240청크)</span><span class="sarrow">›</span>
+    <span class="step">타 시스템 매뉴얼</span>
+  </div>
+  <div class="cols mt4">
+    <div>
+      <div class="checks" style="grid-template-columns:1fr">
+        <div class="check"><span><b>다른 시스템 매뉴얼</b> — TOC 크롤러+파서 파일럿만 검증하면 파이프라인 그대로 재사용</span></div>
+        <div class="check"><span><b>답변 스트리밍(SSE)</b> — 체감 속도 개선</span></div>
+        <div class="check"><span><b>데이터 정제</b> — 중복·보일러플레이트 제거로 검색 노이즈 감소</span></div>
+        <div class="check"><span><b>임베딩 업그레이드</b> — bge-m3(고정밀) 전환 실험</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 시작 프롬프트 — 새 부문 확장</span></div><pre>data/html에 주문 부문(OD*.html) 샘플 3개를
+받아왔어. 계좌 파서(src/parse.py)가 그대로
+동작하는지 검증하고, 깨지는 규칙이 있으면
+tests/test_parse.py에 골든값을 추가한 뒤
+파서를 보강해줘. 기존 계좌 골든값은 깨지면 안 돼.</pre><div class="p-why"><b>왜:</b> "기존 테스트는 깨지면 안 된다"는 회귀 제약이 확장 작업의 안전선을 만든다.</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<!-- ═══════════ 클로징 ═══════════ -->
+
+<section class="slide" data-title="트러블슈팅 FAQ">
+  <div class="kicker">부록 — 트러블슈팅</div>
+  <h1 class="head">막히면 여기부터 — <em>자주 나오는 5가지</em></h1>
+  <table class="tbl mt2">
+    <tr><th style="width:34%">증상</th><th>원인 · 해법</th></tr>
+    <tr><td>모델 다운로드 실패 / 폐쇄망</td><td>최초 1회만 인터넷 필요. 캐시 후 <b>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1</b>로 완전 오프라인 실행</td></tr>
+    <tr><td>질의 결과가 이상함</td><td><b>인덱스 빌드와 질의의 EMBED_MODEL 불일치</b> — meta.json의 모델명과 현재 env 비교</td></tr>
+    <tr><td>답변이 근거 발췌로만 나옴</td><td>Ollama 미기동 — <code style="font-family:var(--mono)">ollama pull qwen2.5:7b-instruct</code> 후 재시도 (폴백은 정상 동작)</td></tr>
+    <tr><td>검색이 10초 이상 걸림</td><td>리랭커 게이트 비용(CPU) — UI [빠른 검색] 토글 또는 <b>RERANK_ENABLE=off</b></td></tr>
+    <tr><td>8000 포트 충돌</td><td><code style="font-family:var(--mono)">PORT=9000 python src/webapp.py</code></td></tr>
+  </table>
+  <div class="band mt3"><span class="bt">만능 한 줄</span><span class="bd">에러 원문을 복사해서 — <b>"이 에러의 원인을 파악하고 해결해줘. 고친 뒤 실제 실행으로 검증까지 해줘"</b></span></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="소스 모음">
+  <div class="kicker">부록 — 더 읽을거리</div>
+  <h1 class="head">오늘 인용한 <em>공신력 소스</em> — 전부 접속 검증됨</h1>
+  <div class="cols mt2">
+    <div>
+      <p class="body" style="font-weight:760;color:var(--ink)">RAG 개념</p>
+      <p class="body mt1" style="font-size:14px;line-height:1.9">
+        <a href="https://arxiv.org/abs/2005.11401">Lewis et al. 2020 — RAG 원 논문 (arXiv)</a><br/>
+        <a href="https://aws.amazon.com/ko/what-is/retrieval-augmented-generation/">AWS — RAG란 무엇인가요 (한국어)</a><br/>
+        <a href="https://cloud.google.com/use-cases/retrieval-augmented-generation?hl=ko">Google Cloud — RAG란 (한국어)</a><br/>
+        <a href="https://blogs.nvidia.co.kr/blog/what-is-retrieval-augmented-generation/">NVIDIA 코리아 — RAG란</a><br/>
+        <a href="https://jalammar.github.io/illustrated-word2vec/">Jay Alammar — Illustrated Word2vec</a><br/>
+        <a href="https://www.pinecone.io/learn/chunking-strategies/">Pinecone — Chunking Strategies</a><br/>
+        <a href="https://www.anthropic.com/news/contextual-retrieval">Anthropic — Contextual Retrieval</a></p>
+    </div>
+    <div>
+      <p class="body" style="font-weight:760;color:var(--ink)">검색·리랭킹 / Claude Code</p>
+      <p class="body mt1" style="font-size:14px;line-height:1.9">
+        <a href="https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables">Elastic — Practical BM25</a><br/>
+        <a href="https://weaviate.io/blog/hybrid-search-explained">Weaviate — Hybrid Search Explained</a><br/>
+        <a href="https://sbert.net/examples/applications/cross-encoder/README.html">SBERT — Cross-Encoders</a><br/>
+        <a href="https://huggingface.co/BAAI/bge-reranker-v2-m3">BAAI — bge-reranker-v2-m3</a><br/>
+        <a href="https://code.claude.com/docs/en/quickstart">Claude Code — Quickstart</a><br/>
+        <a href="https://code.claude.com/docs/en/best-practices">Claude Code — Best practices</a><br/>
+        <a href="https://code.claude.com/docs/en/sub-agents">Claude Code — Subagents</a></p>
+    </div>
+  </div>
+  <p class="body mt3" style="color:var(--dim)">전체 목록과 발췌 근거는 저장소의 <b>docs/edu/sources.md</b> 참고 (26건, 2026-07-02 검증).</p>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide dark" data-title="클로징">
+  <svg class="cover-spark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+    <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
+    <path d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
+  </svg>
+  <h1 class="cover-title">이제, 여러분의 매뉴얼에게<br/><em>직접 물어보세요</em></h1>
+  <p class="cover-sub">파서 하나 검증하면 부문 하나가 챗봇이 됩니다.<br/>오늘의 프롬프트 카드가 그대로 여러분의 시작점입니다.</p>
+  <div class="cover-meta"><span>저장소 · github.com/humanist96/pb_online_manual_chatbot</span><span>교안·소스 목록 · docs/edu/</span></div>
+  <div class="gradbar mt5" style="max-width:420px"></div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<script src="edu.js"></script>
+</body>
+</html>
