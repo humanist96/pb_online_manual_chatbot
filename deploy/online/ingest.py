@@ -1,5 +1,5 @@
 """
-DemoBASE 청크 → Upstash Vector 업서트 + api/_static.py 생성.
+PowerBASE 청크 → Upstash Vector 업서트 + api/_static.py 생성.
 
 전제: Upstash 콘솔에서 인덱스를 다음 설정으로 생성해 둘 것 —
   Type: Hybrid  ·  Dense: BAAI/bge-m3(내장 임베딩)  ·  Sparse: BM25

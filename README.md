@@ -61,7 +61,7 @@
 
 *모호성 배너("근거가 여러 부문에 걸쳐 있어요") · 부문 레벨 근거 지도 · 컴포저의 범위 칩 — 전 부문 39,240청크 실화면*
 
-**🌐 직접 체험**: [pb-manual-desk-demo.vercel.app](https://pb-manual-desk-demo.vercel.app) — 합성 데이터(DemoBASE 832청크)로 동작하는 공개 데모. 스코프 칩·모호성 배너·근거 지도를 브라우저에서 바로 사용해 볼 수 있습니다(사내 원문 미포함).
+**🌐 직접 체험**: [pb-manual-desk-demo.vercel.app](https://pb-manual-desk-demo.vercel.app) — **합성 데모 데이터**(832청크)로 동작하는 PowerBASE 공개 데모. 스코프 칩·모호성 배너·근거 지도를 브라우저에서 바로 사용해 볼 수 있습니다(사내 원문 미포함).
 
 </div>
 

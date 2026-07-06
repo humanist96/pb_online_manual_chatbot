@@ -2,7 +2,7 @@
 온라인 데모 공용 로직 — Upstash Vector 하이브리드 검색 + OpenAI 답변.
 
 ※ 이 폴더(deploy/online/)는 공개 데모 전용 예외 구역이다(CLAUDE.md 참고).
-   합성 데이터(DemoBASE)만 다루며, 사내 폐쇄망 배포와 무관하다.
+   합성 데이터(PowerBASE)만 다루며, 사내 폐쇄망 배포와 무관하다.
    외부 의존 없이 표준 라이브러리만 사용(Vercel 콜드스타트 최소화).
 
 환경변수(Vercel env):
@@ -32,7 +32,7 @@ REDIS_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "").rstrip("/")
 REDIS_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
 
 SYSTEM_PROMPT = (
-    "당신은 가상 증권 원장시스템(DemoBASE) 온라인 매뉴얼 도우미다. "
+    "당신은 증권 원장시스템(PowerBASE) 온라인 매뉴얼 도우미다(공개 데모: 합성 데이터). "
     "아래 [근거]에 있는 내용만 사용해 한국어로 간결하고 정확하게 답한다. "
     "근거에 없으면 '매뉴얼에서 확인되지 않습니다.'라고 답하고 추측하지 않는다. "
     "핵심을 먼저 말하고, 사용한 근거마다 문장 끝에 [S1],[S2] 형태의 출처 마커를 붙인다."
