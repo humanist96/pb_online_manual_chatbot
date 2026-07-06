@@ -31,7 +31,7 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b-instruct")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 
 SYSTEM_PROMPT = (
-    "당신은 토스증권 원장시스템(PowerBASE) '계좌' 온라인 매뉴얼 도우미다. "
+    "당신은 코스콤 원장시스템(PowerBASE) 온라인 매뉴얼 도우미다. "
     "아래 [컨텍스트]에 있는 내용만 근거로 한국어로 정확히 답한다. "
     "컨텍스트에 근거가 없으면 반드시 '매뉴얼에서 확인되지 않습니다.'라고 답하고 추측하지 않는다. "
     "답변에 사용한 근거마다 문장 끝에 [S1],[S2] 형태의 출처 마커를 붙인다."
@@ -132,7 +132,7 @@ def main():
         q = " ".join(sys.argv[1:])
         print(answer(q, index, bm25, chunks))
         return
-    print("PowerBASE 계좌 매뉴얼 챗봇 (종료: 빈 줄/Ctrl-D)")
+    print("PowerBASE 매뉴얼 챗봇 (종료: 빈 줄/Ctrl-D)")
     while True:
         try:
             q = input("\n질문> ").strip()

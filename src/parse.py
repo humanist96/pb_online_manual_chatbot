@@ -200,10 +200,28 @@ def parse_html(path: str) -> dict:
     if h2s:
         doc["summary"] = norm(h2s[0].get_text(" "))
         add_bc([title, "화면개요"], doc["summary"])
-    # 테이블 단계가 없는 h2 전용 토픽(ACA40100 등): 나머지 h2 블록을 화면설명으로 보존
+    # 테이블 단계가 없는 h2 전용 토픽(ACA40100, 감사/투자정보 등 경량 템플릿):
+    # <h2>라벨</h2><div class="h2">본문</div> 쌍 구조 — 라벨을 살리고 목록은 단계별로 분할
     if not steps and len(h2s) > 1:
         for j, h in enumerate(h2s[1:], 1):
-            add_bc([title, "화면설명", f"내용{j}"], norm(h.get_text(" ")))
+            head = h.find_previous_sibling("h2")
+            label = norm(head.get_text(" ")) if head else f"내용{j}"
+            lst = h.find(["ol", "ul"])
+            lis = (lst.find_all("li", recursive=False) or lst.find_all("li")) if lst else []
+            if lis:
+                for k, li in enumerate(lis, 1):
+                    add_bc([title, label, f"단계{k}"], norm(li.get_text(" ")))
+            else:
+                add_bc([title, label], norm(h.get_text(" ")))
+
+    # 최후 폴백(SQ010000 등 소개 문서): 구조 클래스가 전혀 없으면 본문 문단을 개요로 보존
+    if not doc["breadcrumbs"]:
+        content = soup.find("div", id="content")
+        if content:
+            for p in content.find_all("p"):
+                t = norm(p.get_text(" "))
+                if len(t) >= 15:
+                    add_bc([title, "화면개요"], t)
 
     for i, step in enumerate(steps, 1):
         lead = _lead_paragraph(step)

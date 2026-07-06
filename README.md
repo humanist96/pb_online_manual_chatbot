@@ -9,8 +9,8 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Local](https://img.shields.io/badge/100%25-Local_·_Offline-2EC4B6)](#)
 [![Open Source](https://img.shields.io/badge/Stack-Open_Source-brightgreen)](#)
-[![Screens](https://img.shields.io/badge/화면-356-f5821f)](#)
-[![Chunks](https://img.shields.io/badge/청크-4%2C443-f5821f)](#)
+[![Screens](https://img.shields.io/badge/화면-4%2C108_·_19부문-f5821f)](#)
+[![Chunks](https://img.shields.io/badge/청크-39%2C240-f5821f)](#)
 [![Search](https://img.shields.io/badge/Search-Hybrid_Dense%2BBM25-8A2BE2)](#)
 [![LLM](https://img.shields.io/badge/LLM-Ollama_|_Claude_CLI-e4670a)](#)
 [![Deploy](https://img.shields.io/badge/Deploy-Docker_|_systemd-2496ED?logo=docker&logoColor=white)](#)
@@ -23,7 +23,7 @@
 
 ## 🎯 Why RAG 챗봇?
 
-토스증권 원장시스템(**PowerBASE**)의 온라인 매뉴얼(Adobe RoboHelp)은 **수백 개 화면**이
+코스콤 원장시스템(**PowerBASE**)의 온라인 매뉴얼(Adobe RoboHelp)은 **수백 개 화면**이
 트리 메뉴로 흩어져 있어, 담당자가 필요한 항목을 찾으려면 매번 클릭·스크롤·검색을 반복해야 합니다.
 
 | 기존 방식 (RoboHelp GUI) | 이 도구 (RAG 챗봇) |
@@ -45,7 +45,8 @@
 - 🧭 **계층 경로 보존** — `화면 > 화면설명 > 조건입력 > 상품유형 > 위탁계좌` 브레드크럼을 문맥·출처로 활용
 - 💬 **대화형 매뉴얼 데스크** — 스레드형 Q&A + 질문 이력 + 후속질문 제안, 인용 `[S1]` ↔ 근거 카드 양방향 하이라이트
 - 🗺️ **근거 지도** — 답변 근거들의 브레드크럼 경로를 병합한 트리로 "매뉴얼 어디에서 왔는지"를 한눈에
-- 🗂️ **계좌 섹션 전량** — RoboHelp TOC 재귀 크롤링으로 **356화면 / 4,443청크** 자동 색인
+- 🗂️ **전 부문 전량** — RoboHelp TOC 재귀 크롤링으로 **19부문 / 4,108화면 / 39,240청크** 자동 색인
+- 🧭 **브레드크럼 스코프** — 질문 범위를 부문>중분류>화면으로 선택, 근거가 여러 부문에 걸치면 **모호성 배너**로 원클릭 범위 확정(교차 오염 방지)
 - 🔒 **100% 로컬·오프라인** — 임베딩·검색·LLM·폰트 모두 로컬, 외부 상용 API 불필요(폐쇄망 대응)
 - 🎛️ **QA 모드** — `Q` 키(또는 `?qa=1`)로 계측 레이어 토글: α·τ·top-k 슬라이더, dense/sparse 기여도, 게이트 상태
 - 🚀 **원클릭 배포** — 설치·색인·실행 스크립트 + Docker + systemd
@@ -66,7 +67,7 @@
 
 ## 🎬 실전 시나리오 (실측)
 
-실제 색인(계좌 4,443청크)에 실제 질의를 넣어 받은 **무편집 결과**입니다.
+실제 색인(전 부문 39,240청크)에 실제 질의를 넣어 받은 **무편집 결과**입니다.
 환경: CPU 전용(WSL2) · `ko-sroberta` 임베딩 · `bge-reranker-v2-m3` 게이트(τ=0.506, 자동 보정).
 
 | # | 시나리오 | 질문 | 결과 |
@@ -115,6 +116,7 @@
 - **근거 선노출** — 검색(`/api/search`)이 끝나면 근거가 먼저 뜨고, 답변(`/api/answer`)이 뒤따라 채워집니다. 로딩은 "매뉴얼 검색 중 → 근거 n건 확보 → 답변 작성 중" 단계로 표시.
 - **대화 경험** — 질문 이력(localStorage, 오늘/어제 그룹) · 추천 질문 칩(매뉴얼 Q&A에서 자동 추출) · 후속질문 제안 · 답변 복사/재생성 · 화면코드 클릭 복사.
 - **게이트 안내** — 근거가 전부 임계치 미만이면 LLM을 호출하지 않고 "매뉴얼에서 확인되지 않았어요" 카드와 대안 질문을 제시합니다(할루시네이션 차단).
+- **브레드크럼 스코프** — 컴포저의 [범위] 칩으로 부문>중분류>화면 선택(기억됨). 근거가 여러 부문에 걸치면 배너가 먼저 묻고, 근거 지도의 부문·화면 노드에서 "좁히기"로 즉시 재검색.
 - **딥링크** — `/?q=질문` 으로 질문 상태를 공유, `/?qa=1` 로 QA 모드 진입.
 
 **단축키** — `Enter` 전송 · `Shift+Enter` 줄바꿈 · `/` 또는 `Ctrl(⌘)+K` 입력창 포커스 · `Q` QA 모드 · `Esc` 시트 닫기

@@ -58,6 +58,36 @@ def test_qa_content():
     assert "변경사용자" in qa["a"]
 
 
+# ── 전 부문 확장 골든 (부문별 파일럿) — 계좌 골든과 동일한 회귀 방지선 ──
+
+def test_sector_full_template():
+    """선물주문 ON400100 — 정식 템플릿이 타 부문에서도 동일 규칙으로 파싱."""
+    d = parse_html(str(ROOT / "data/html/ON400100.html"))
+    assert len(d["breadcrumbs"]) >= 25
+    assert len(d["glossary"]) == 3
+    assert len(d["related"]) == 6
+    assert len(d["qa"]) == 1
+    paths = [" > ".join(b["path"]) for b in d["breadcrumbs"]]
+    assert any("화면설명" in p for p in paths)
+
+
+def test_sector_h2_template():
+    """감사 AD008300 — 경량 h2 템플릿: <h2>라벨</h2><div class=h2>본문(목록)</div>."""
+    d = parse_html(str(ROOT / "data/html/AD008300.html"))
+    assert len(d["breadcrumbs"]) >= 10
+    paths = [" > ".join(b["path"]) for b in d["breadcrumbs"]]
+    # 라벨이 '내용N'이 아니라 실제 h2 텍스트로 살아나야 함
+    assert any("화면설명/사용방법" in p for p in paths)
+    assert any("단계1" in p for p in paths)
+
+
+def test_sector_intro_fallback():
+    """시스템소개 SQ010000 — 구조 클래스 전무: 본문 문단을 화면개요로 보존."""
+    d = parse_html(str(ROOT / "data/html/SQ010000.html"))
+    assert len(d["breadcrumbs"]) >= 3
+    assert all(b["path"][1] == "화면개요" for b in d["breadcrumbs"])
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     passed = 0

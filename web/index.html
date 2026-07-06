@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PB 매뉴얼 데스크 · PowerBASE 계좌</title>
+<title>PB 매뉴얼 데스크 · PowerBASE 전 부문</title>
 <link rel="stylesheet" href="/styles.css?v=2" />
 </head>
 <body class="is-empty">
@@ -39,7 +39,7 @@
   <div class="vr" aria-hidden="true"></div>
   <div class="brand">
     <h1>PB 매뉴얼 데스크</h1>
-    <span class="sub">PowerBASE · 계좌</span>
+    <span class="sub">PowerBASE · 전 부문</span>
   </div>
 
   <div class="top-right">
@@ -61,7 +61,7 @@
   <main class="stage">
     <div class="thread-wrap" id="thread-wrap">
       <section class="hero" id="hero">
-        <h2>PowerBASE 계좌 매뉴얼,<br/>무엇이든 물어보세요</h2>
+        <h2>PowerBASE 매뉴얼,<br/>무엇이든 물어보세요</h2>
         <p>답은 항상 매뉴얼 근거와 함께 드려요.</p>
         <div class="chips" id="samples"></div>
       </section>
@@ -69,13 +69,24 @@
     </div>
 
     <div class="dock">
+      <div class="scope-panel" id="scope-panel" hidden>
+        <div class="sp-head">
+          <b>질문 범위 선택</b>
+          <span class="sp-cur mono" id="sp-cur"></span>
+          <button type="button" class="sp-all" id="sp-all">전체로</button>
+          <button type="button" class="sp-close" id="sp-close" aria-label="닫기">✕</button>
+        </div>
+        <div class="sp-cols" id="sp-cols"></div>
+      </div>
       <form class="composer" id="composer">
+        <button type="button" class="scope-chip" id="scope-chip" aria-haspopup="true"
+          title="질문 범위(브레드크럼) 선택 — 다른 부문 결과가 섞이지 않게 좁혀요">범위: 전체 ▾</button>
         <textarea id="q" rows="1" placeholder="매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
         <button type="button" class="precise" id="precise" aria-pressed="true" hidden
           title="정밀 게이트(리랭커) — 켜면 관련도 판정이 정확(질문당 +10초 내외), 끄면 빠른 코사인 판정">정밀</button>
         <button class="ask" id="ask" type="submit">질문하기</button>
       </form>
-      <p class="dock-hint"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · 답변은 계좌 매뉴얼 안에서만 생성돼요</p>
+      <p class="dock-hint"><kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · 답변은 매뉴얼 안에서만 생성돼요</p>
     </div>
   </main>
 

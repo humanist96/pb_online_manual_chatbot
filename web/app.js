@@ -22,6 +22,8 @@ const S = {
   qa: false,
   rerank: true,        // 정밀 게이트(리랭커) 사용 여부 — 컴포저 '정밀' 토글
   tauTouched: false,   // QA 슬라이더로 τ를 직접 만졌는지 (아니면 서버 기본값 추종)
+  scope: [],           // 브레드크럼 스코프 (부문>중분류>화면) — 교차 오염 방지
+  sectorTree: null,    // /api/sectors 캐시
   alpha: 0.5, topk: 5, tau: 0.5, gateMode: "cosine",
   types: new Set(Object.keys(TYPES)),
   samples: [],
@@ -42,6 +44,7 @@ function loadStore() {
     S.sessions = Array.isArray(d.sessions) ? d.sessions : [];
     S.qa = !!d.qa;
     S.rerank = d.rerank !== false;
+    S.scope = Array.isArray(d.scope) ? d.scope : [];
     if (d.navClosed) document.body.classList.add("nav-closed");
     // 중단된 턴은 오류로 정리
     for (const ss of S.sessions)
@@ -56,12 +59,14 @@ function saveStore() {
       sessions: S.sessions.slice(0, 30),
       qa: S.qa,
       rerank: S.rerank,
+      scope: S.scope,
       navClosed: document.body.classList.contains("nav-closed"),
     }));
   } catch { /* 저장소 초과 시 조용히 무시 */ }
 }
 const trimHits = hits => (hits || []).map(h => ({
   rank: h.rank, chunk_type: h.chunk_type, section_path: h.section_path,
+  sector: h.sector, sector_path: h.sector_path,
   text: h.text, screen_id: h.screen_id, screen_no: h.screen_no,
   source_url: h.source_url, confidence: h.confidence, low_conf: h.low_conf,
   dense: h.dense, sparse: h.sparse, cos: h.cos,
@@ -200,11 +205,24 @@ function turnBody(turn) {
         ${turnFoot(turn)}`;
   }
 }
+function scopeBanner(turn) {
+  const h = turn.scope_hint;
+  if (!h?.ambiguous || turn.scope?.length || turn.hintDismissed) return "";
+  const chips = h.sectors.slice(0, 3).map(s =>
+    `<button type="button" class="sb-chip sb-scope" data-sector="${esc(s.sector)}"
+       data-q="${esc(turn.q)}">${esc(s.sector)}에서만 (${s.count}건 · ${(+s.best).toFixed(2)})</button>`).join("");
+  return `<div class="scope-banner" role="status">
+    <span class="sb-t">근거가 여러 부문에 걸쳐 있어요 — 어느 업무 기준으로 볼까요?</span>
+    ${chips}<button type="button" class="sb-chip keep sb-keep">전체 유지</button></div>`;
+}
 function renderTurn(turn) {
   const el = document.createElement("article");
   el.className = "turn"; el.id = "turn-" + turn.id; el.dataset.turn = turn.id;
-  el.innerHTML = `<div class="u-row"><div class="u-bubble">${esc(turn.q)}</div></div>
-    <section class="a-card" aria-live="polite">${turnBody(turn)}</section>${followups(turn)}`;
+  const scopeTag = turn.scope?.length
+    ? `<div class="u-scope">범위: <b>${esc(turn.scope.join(" › "))}</b></div>` : "";
+  el.innerHTML = `<div class="u-row"><div class="u-bubble">${esc(turn.q)}</div></div>${scopeTag}
+    <section class="a-card" aria-live="polite">${
+      turn.state === "done" ? scopeBanner(turn) : ""}${turnBody(turn)}</section>${followups(turn)}`;
   return el;
 }
 function updateTurn(turn) {
@@ -222,28 +240,38 @@ const scrollBottom = () => { threadWrap.scrollTop = threadWrap.scrollHeight; };
 const evMap = $("#ev-map"), evCards = $("#ev-cards"), evEmpty = $("#ev-empty"), evHead = $("#ev-head");
 
 function buildTree(hits) {
+  // 전 부문 확장: 부문(sector)을 최상위 레벨로 — 부문·화면 노드는 scope(좁히기 경로)를 가진다
   const roots = new Map();
   for (const h of hits) {
-    const path = h.section_path || [];
-    if (!path.length) continue;
-    if (!roots.has(path[0])) roots.set(path[0], { label: path[0], children: new Map(), ranks: [] });
-    let node = roots.get(path[0]);
-    for (const seg of path.slice(1)) {
-      if (!node.children.has(seg)) node.children.set(seg, { label: seg, children: new Map(), ranks: [] });
+    const segs = [...(h.sector ? [h.sector] : []), ...(h.section_path || [])];
+    if (!segs.length) continue;
+    if (!roots.has(segs[0]))
+      roots.set(segs[0], { label: segs[0], children: new Map(), ranks: [],
+                           scope: h.sector ? [h.sector] : null });
+    let node = roots.get(segs[0]);
+    segs.slice(1).forEach((seg, idx) => {
+      if (!node.children.has(seg))
+        node.children.set(seg, { label: seg, children: new Map(), ranks: [], scope: null });
       node = node.children.get(seg);
-    }
+      if (h.sector && idx === 0 && !node.scope)   // 화면 제목 레벨 → 화면 단위 스코프
+        node.scope = [...(h.sector_path || [h.sector]), h.screen_id];
+    });
     node.ranks.push(h.rank);
   }
   const collapse = (n, isRoot) => {
     while (!isRoot && n.children.size === 1 && !n.ranks.length) {
       const c = n.children.values().next().value;
       n.label += " › " + c.label; n.ranks = c.ranks; n.children = c.children;
+      n.scope = c.scope || n.scope;
     }
     for (const c of n.children.values()) collapse(c, false);
   };
   for (const r of roots.values()) collapse(r, true);
   return roots;
 }
+const scopeBtn = n => n.scope
+  ? `<button type="button" class="mn-scope" data-scope="${esc(n.scope.join(">"))}"
+       title="이 경로로 범위를 좁혀 다시 검색">좁히기</button>` : "";
 const subRanks = n => {
   const acc = [...n.ranks];
   for (const c of n.children.values()) acc.push(...subRanks(c));
@@ -254,7 +282,7 @@ function renderNode(n, counter) {
   const cites = n.ranks.sort((a, b) => a - b).map(r =>
     `<button type="button" class="cite" data-r="${r}" aria-label="근거 ${r} 보기">S${r}</button>`).join("");
   let html = `<div class="mn-row" data-ranks="${ranks.join(" ")}" style="--i:${counter.v++}">
-    <span class="mn-t" title="${esc(n.label)}">${esc(n.label)}</span>${cites}</div>`;
+    <span class="mn-t" title="${esc(n.label)}">${esc(n.label)}</span>${cites}${scopeBtn(n)}</div>`;
   if (n.children.size)
     html += `<div class="mn-kids">${[...n.children.values()].map(c => renderNode(c, counter)).join("")}</div>`;
   return html;
@@ -267,7 +295,8 @@ function renderMap(hits) {
     [...roots.values()].map(r => {
       const own = r.ranks.sort((a, b) => a - b).map(k =>
         `<button type="button" class="cite" data-r="${k}">S${k}</button>`).join("");
-      return `<div class="mn-root" data-ranks="${subRanks(r).join(" ")}">${esc(r.label)}${own}</div>` +
+      return `<div class="mn-root" data-ranks="${subRanks(r).join(" ")}">
+          <span class="mn-t" title="${esc(r.label)}">${esc(r.label)}</span>${own}${scopeBtn(r)}</div>` +
         (r.children.size
           ? `<div class="mn-kids">${[...r.children.values()].map(c => renderNode(c, counter)).join("")}</div>`
           : "");
@@ -410,6 +439,7 @@ function buildParams(q) {
     q, alpha: S.alpha, topk: S.topk,
     tau: S.tauTouched ? S.tau : "",          // 빈 값 → 서버가 게이트 모드별 보정값 사용
     rerank: S.rerank ? "1" : "0",
+    scope: S.scope.join(">"),
     types: S.types.size === Object.keys(TYPES).length ? "" : [...S.types].join(","),
   });
 }
@@ -440,10 +470,12 @@ async function ask(q) {
   document.body.classList.remove("is-empty");
   updateTurn(turn); renderSessions(); scrollBottom();
 
+  turn.scope = [...S.scope];                                    // 이 턴에 적용된 스코프
   const params = buildParams(q);
   try {
     const s = await getJSON("/api/search?" + params);           // 1단: 근거 선노출
     turn.hits = trimHits(s.hits); turn.gate = s.gate; turn.search_ms = s.elapsed_ms;
+    turn.scope_hint = s.scope_hint;
     syncTau(s.gate);
     turn.state = "writing";
     updateTurn(turn); renderEvidence(turn); scrollBottom();
@@ -451,7 +483,7 @@ async function ask(q) {
     const a = await getJSON("/api/answer?" + params);           // 2단: 답변
     Object.assign(turn, {
       hits: trimHits(a.hits), gate: a.gate, answer: a.answer,
-      backend: a.backend, used_llm: a.used_llm,
+      backend: a.backend, used_llm: a.used_llm, scope_hint: a.scope_hint,
       search_ms: a.search_ms, gen_ms: a.gen_ms,
     });
     turn.state = (a.backend === "gated" || a.gate?.all_low) ? "gated" : "done";
@@ -512,6 +544,34 @@ function copyText(t, el) {
 }
 
 document.addEventListener("click", e => {
+  const spItem = e.target.closest(".sp-item");
+  if (spItem) {
+    setScope(JSON.parse(spItem.dataset.path));
+    renderScopePanel();
+    return;
+  }
+  const sbScope = e.target.closest(".sb-scope");
+  if (sbScope) {                        // 모호성 배너 → 부문 확정 후 같은 질문 재검색
+    const t = S.turns.find(x => x.id === sbScope.closest(".turn")?.dataset.turn);
+    if (t) { t.hintDismissed = true; updateTurn(t); }
+    setScope([sbScope.dataset.sector]);
+    ask(sbScope.dataset.q);
+    return;
+  }
+  const sbKeep = e.target.closest(".sb-keep");
+  if (sbKeep) {
+    const t = S.turns.find(x => x.id === sbKeep.closest(".turn")?.dataset.turn);
+    if (t) { t.hintDismissed = true; updateTurn(t); }
+    return;
+  }
+  const mnScope = e.target.closest(".mn-scope");
+  if (mnScope) {                        // 근거 지도 → 이 경로로 좁혀 재검색
+    setScope(mnScope.dataset.scope.split(">"));
+    const t = S.turns.find(x => x.id === S.sel);
+    if (t) ask(t.q); else qEl.focus();
+    return;
+  }
+  if (!e.target.closest("#scope-panel, #scope-chip")) $("#scope-panel").hidden = true;
   const cite = e.target.closest("[data-r]");
   if (cite && (cite.classList.contains("cite") || cite.classList.contains("src-chip"))) {
     focusCard(+cite.dataset.r, cite.closest(".turn")?.dataset.turn);
@@ -592,6 +652,57 @@ qEl.addEventListener("keydown", e => {
 });
 qEl.addEventListener("input", autoresize);
 
+/* ═══════════════ 브레드크럼 스코프 (전 부문 확장) ═══════════════ */
+function renderScopeChip() {
+  const c = $("#scope-chip");
+  c.textContent = S.scope.length ? "범위: " + S.scope.join(" › ") : "범위: 전체 ▾";
+  c.classList.toggle("on", !!S.scope.length);
+}
+function setScope(segs) {
+  S.scope = segs || [];
+  renderScopeChip(); saveStore();
+}
+async function ensureSectors() {
+  if (S.sectorTree) return S.sectorTree;
+  const d = await getJSON("/api/sectors");
+  S.sectorTree = d.tree || [];
+  return S.sectorTree;
+}
+function renderScopePanel() {
+  const box = $("#sp-cols");
+  $("#sp-cur").textContent = S.scope.length ? S.scope.join(" › ") : "전체";
+  const cols = [];
+  let parent = { children: S.sectorTree || [], screens: [] };
+  for (let level = 0; parent && cols.length < 4; level++) {
+    const sel = S.scope[level];
+    const books = (parent.children || []).map(n => {
+      const path = [...S.scope.slice(0, level), n.name];
+      return `<button type="button" class="sp-item${n.name === sel ? " on" : ""}"
+        data-path="${esc(JSON.stringify(path))}">
+        <span class="n">${esc(n.name)}</span><span class="c">${n.count}</span>
+        ${(n.children?.length || n.screens?.length) ? '<span class="arr">›</span>' : ""}</button>`;
+    }).join("");
+    const screens = (parent.screens || []).map(s => {
+      const path = [...S.scope.slice(0, level), s.id];
+      return `<button type="button" class="sp-item${s.id === sel ? " on" : ""}"
+        data-path="${esc(JSON.stringify(path))}">
+        <span class="n">${esc(s.title)}</span><span class="c">${esc(s.id)}</span></button>`;
+    }).join("");
+    if (!books && !screens) break;
+    cols.push(`<div class="sp-col">${books}${screens}</div>`);
+    parent = (parent.children || []).find(n => n.name === sel);
+  }
+  box.innerHTML = cols.join("");
+}
+$("#scope-chip").addEventListener("click", async () => {
+  const panel = $("#scope-panel");
+  if (!panel.hidden) { panel.hidden = true; return; }
+  try { await ensureSectors(); } catch { return; }
+  renderScopePanel(); panel.hidden = false;
+});
+$("#sp-close").addEventListener("click", () => { $("#scope-panel").hidden = true; });
+$("#sp-all").addEventListener("click", () => { setScope([]); renderScopePanel(); });
+
 /* 정밀 게이트(리랭커) 토글 — 라벨이 현재 모드를 말해준다 */
 function renderPrecise() {
   const p = $("#precise");
@@ -625,6 +736,7 @@ $("#scrim").addEventListener("click", () => {
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     document.body.classList.remove("nav-open", "ev-open"); syncScrim();
+    $("#scope-panel").hidden = true;
     return;
   }
   if (e.target.closest("input, textarea")) return;
@@ -677,6 +789,7 @@ function renderSamples() {
 loadStore();
 if (new URLSearchParams(location.search).get("qa") === "1") S.qa = true;
 setQa(S.qa);
+renderScopeChip();
 renderSessions();
 renderThread();
 autoresize();

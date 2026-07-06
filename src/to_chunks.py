@@ -16,6 +16,22 @@ import pathlib
 
 from parse import parse_html
 
+# 부문 매니페스트(crawl_toc.py 산출) — TOC 경로가 브레드크럼 상위 계층이 된다
+_MANIFEST_PATH = pathlib.Path("data/manifest.json")
+_manifest: dict = {}
+if _MANIFEST_PATH.exists():
+    with open(_MANIFEST_PATH, encoding="utf-8") as f:
+        _manifest = json.load(f)
+
+
+def sector_of(screen_id: str) -> tuple[str, list[str]]:
+    """(부문, TOC 경로). 매니페스트에 없으면 ('', [])."""
+    m = _manifest.get(f"{screen_id}.html")
+    if not m:
+        return "", []
+    segs = [s.strip() for s in m["path"].split(">")]
+    return segs[0], segs
+
 
 SECTION_TO_TYPE = {
     "화면개요": "overview",
@@ -28,6 +44,7 @@ SECTION_TO_TYPE = {
 
 def doc_to_chunks(doc: dict) -> list[dict]:
     chunks = []
+    sector, sector_path = sector_of(doc["screen_id"])
     for i, bc in enumerate(doc["breadcrumbs"]):
         path = bc["path"]
         text = bc["text"]
@@ -43,13 +60,16 @@ def doc_to_chunks(doc: dict) -> list[dict]:
             "screen_no": doc["screen_no"],
             "title": doc["title"],
             "source_url": doc["source_url"],
+            "sector": sector,                 # 부문 (1차 스코프 키)
+            "sector_path": sector_path,       # TOC 전체 경로 — 브레드크럼 상위 계층
             "chunk_type": ctype,
             "section_path": path,
             "path_str": path_str,
             "term": term,
             "text": text,
-            # 경로 보존 임베딩 텍스트 (질문보기는 질문이 path 말단에 포함됨)
-            "embed_text": f"{path_str} : {text}",
+            # 경로 보존 임베딩 텍스트 — 부문을 접두해 상위 문맥까지 임베딩에 주입
+            # (질문보기는 질문이 path 말단에 포함됨)
+            "embed_text": (f"[{sector}] " if sector else "") + f"{path_str} : {text}",
         }
         chunks.append(chunk)
     return chunks

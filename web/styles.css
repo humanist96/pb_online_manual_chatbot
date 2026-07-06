@@ -275,6 +275,75 @@ body.is-empty .dock::before{display:none}
   max-height:160px; padding:4px 0;
 }
 .composer textarea::placeholder{color:var(--faint)}
+/* ── 브레드크럼 스코프 (전 부문 확장) ── */
+.scope-chip{
+  flex:0 0 auto; align-self:flex-end; margin-bottom:3px; max-width:280px;
+  padding:7px 12px; border-radius:10px; font-size:12.5px; font-weight:700;
+  background:var(--mist); border:1px solid var(--line-2); color:var(--ink-2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.scope-chip:hover{border-color:var(--brand); color:var(--brand-text)}
+.scope-chip.on{background:var(--brand-tint); border-color:var(--brand-line); color:var(--brand-text)}
+.scope-panel{
+  position:absolute; left:24px; right:24px; bottom:calc(100% + 8px); z-index:30;
+  max-width:720px; margin:0 auto; background:var(--surface);
+  border:1px solid var(--line-2); border-radius:14px; box-shadow:0 18px 44px -18px #191c2055;
+  overflow:hidden;
+}
+.dock{position:relative}
+.sp-head{display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-bottom:1px solid var(--line); font-size:13px}
+.sp-cur{font-size:11px; color:var(--brand-text); flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sp-all{font-size:12px; font-weight:600; color:var(--dim); padding:4px 10px;
+  border:1px solid var(--line-2); border-radius:8px}
+.sp-all:hover{color:var(--ink-2); border-color:var(--steel-2)}
+.sp-close{width:26px; height:26px; border-radius:7px; color:var(--dim)}
+.sp-close:hover{background:var(--mist)}
+.sp-cols{display:flex; max-height:320px}
+.sp-col{flex:1; min-width:0; overflow-y:auto; border-right:1px solid var(--line); padding:6px}
+.sp-col:last-child{border-right:0}
+.sp-item{
+  display:flex; align-items:center; gap:6px; width:100%; text-align:left;
+  padding:7px 10px; border-radius:8px; font-size:13px; color:var(--ink-2); cursor:pointer;
+}
+.sp-item:hover{background:var(--mist)}
+.sp-item.on{background:var(--brand-tint); color:var(--brand-text); font-weight:700}
+.sp-item .n{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sp-item .c{font-family:var(--mono); font-size:10px; color:var(--faint)}
+.sp-item .arr{color:var(--faint); font-size:11px}
+
+/* 모호성 배너 (scope_hint) */
+.scope-banner{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  margin:10px 16px 0; padding:10px 14px; border-radius:11px;
+  background:linear-gradient(180deg,#fff,var(--mist)); border:1px solid var(--line-2);
+  border-left:3px solid var(--brand); font-size:13px; color:var(--ink-2);
+}
+.scope-banner .sb-t{font-weight:700; color:var(--ink)}
+.sb-chip{
+  padding:5px 12px; border-radius:100px; font-size:12.5px; font-weight:700;
+  border:1px solid var(--brand-line); background:var(--brand-tint); color:var(--brand-text);
+}
+.sb-chip:hover{background:var(--brand); border-color:var(--brand); color:#fff}
+.sb-chip.keep{border-color:var(--line-2); background:#fff; color:var(--dim)}
+.sb-chip.keep:hover{color:var(--ink-2); border-color:var(--steel-2); background:#fff}
+
+/* 사용자 버블 아래 스코프 태그 */
+.u-scope{display:flex; justify-content:flex-end; margin:-8px 0 12px;
+  font-size:11px; color:var(--dim)}
+.u-scope b{color:var(--brand-text); font-weight:700}
+
+/* 근거 지도 — 경로로 좁히기 */
+.mn-scope{
+  flex:0 0 auto; font-size:10px; font-weight:700; padding:1px 8px; border-radius:100px;
+  border:1px solid var(--line-2); color:var(--dim); visibility:hidden;
+}
+.mn-row:hover .mn-scope,.mn-root:hover .mn-scope{visibility:visible}
+.mn-scope:hover{border-color:var(--brand); color:var(--brand-text); background:var(--brand-tint)}
+.mn-root{display:flex; align-items:center; gap:6px}
+.mn-root .mn-t{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
 .precise{
   flex:0 0 auto; display:inline-flex; align-items:center; gap:7px;
   padding:8px 14px; border-radius:11px; margin-bottom:1px;

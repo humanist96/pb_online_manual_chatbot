@@ -10,9 +10,11 @@
 API:
   GET /               → web/index.html
   GET /styles.css 등  → web/ 하위 정적 자산(화이트리스트 확장자만)
-  GET /api/meta       → 인덱스 메타(모델/차원/건수) + 추천 질문 samples
-  GET /api/search?q=&alpha=&topk=&types=
-        → {query, alpha, topk, elapsed_ms, hits:[{..., combined, dense, sparse, rank}]}
+  GET /api/meta       → 인덱스 메타(모델/차원/건수) + 추천 질문 samples + sectors 통계
+  GET /api/sectors    → 브레드크럼 스코프 셀렉터용 TOC 트리(부문→중분류→화면, 청크 수)
+  GET /api/search?q=&alpha=&topk=&types=&scope=계좌>고객관리
+        → {query, ..., scope, scope_hint:{ambiguous,sectors}, hits:[...]}
+    scope: 브레드크럼 경로 접두(">" 구분) — 부문/중분류/화면 단위로 검색 범위 제한
 """
 from __future__ import annotations
 import os
@@ -45,7 +47,7 @@ CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")  # 빠른 응답용
 
 SYSTEM_PROMPT = (
-    "당신은 토스증권 원장시스템(PowerBASE) '계좌' 온라인 매뉴얼 도우미다. "
+    "당신은 코스콤 원장시스템(PowerBASE) 온라인 매뉴얼 도우미다. "
     "아래 [근거]에 있는 내용만 사용해 한국어로 간결하고 정확하게 답한다. "
     "근거에 없으면 '매뉴얼에서 확인되지 않습니다.'라고 답하고 추측하지 않는다. "
     "핵심을 먼저 말하고, 사용한 근거마다 문장 끝에 [S1],[S2] 형태의 출처 마커를 붙인다."
@@ -85,6 +87,36 @@ def _sample_questions(chunks: list[dict], limit: int = 8) -> list[str]:
 
 _samples = _sample_questions(_chunks)
 
+
+def _build_sector_tree(chunks: list[dict]) -> list[dict]:
+    """스코프 셀렉터용 TOC 트리 — sector_path 체인 + 말단 화면 목록(청크 수 포함)."""
+    root: dict[str, dict] = {}
+    for c in chunks:
+        segs = list(c.get("sector_path") or []) or ["미분류"]
+        children = root
+        node = None
+        for s in segs:
+            node = children.setdefault(s, {"name": s, "count": 0,
+                                           "children": {}, "screens": {}})
+            node["count"] += 1
+            children = node["children"]
+        scr = node["screens"].setdefault(
+            c["screen_id"], {"id": c["screen_id"], "title": c["title"], "count": 0})
+        scr["count"] += 1
+
+    def ser(d: dict) -> list[dict]:
+        out = []
+        for n in d.values():
+            out.append({"name": n["name"], "count": n["count"],
+                        "children": ser(n["children"]),
+                        "screens": sorted(n["screens"].values(), key=lambda x: x["id"])})
+        return out
+    return ser(root)
+
+
+_sector_tree = _build_sector_tree(_chunks)
+_sector_counts = {t["name"]: t["count"] for t in _sector_tree}
+
 # 정적 자산 서빙 화이트리스트 (web/ 하위, 경로 탈출 방지)
 _STATIC_TYPES = {
     ".css": "text/css; charset=utf-8",
@@ -105,8 +137,28 @@ def _minmax(x: np.ndarray) -> np.ndarray:
     return (x - lo) / (hi - lo)
 
 
+def _scope_match(chunk: dict, scope: list[str]) -> bool:
+    """브레드크럼 스코프 매칭 — TOC 경로+화면ID에 대한 세그먼트 단위 접두 비교."""
+    full = list(chunk.get("sector_path") or []) + [chunk["screen_id"]]
+    return len(scope) <= len(full) and all(a == b for a, b in zip(scope, full))
+
+
+def _scope_hint(hits: list[dict]) -> dict:
+    """근거의 부문 분포 — 교차 오염 감지. 상위 두 부문의 최고 신뢰도가 근소하면 모호."""
+    by: dict[str, dict] = {}
+    for h in hits:
+        s = h.get("sector") or "미분류"
+        d = by.setdefault(s, {"sector": s, "count": 0, "best": 0.0})
+        d["count"] += 1
+        d["best"] = max(d["best"], h["confidence"])
+    secs = sorted(by.values(), key=lambda x: -x["best"])
+    ambiguous = len(secs) >= 2 and (secs[0]["best"] - secs[1]["best"]) < 0.08
+    return {"ambiguous": ambiguous, "sectors": secs}
+
+
 def search(query: str, alpha: float, topk: int, types: set[str] | None,
-           tau: float | None = None, use_rerank: bool = True):
+           tau: float | None = None, use_rerank: bool = True,
+           scope: list[str] | None = None):
     """하이브리드 검색 + 관련도 게이트.
     1) 하이브리드(정규화 combined)로 후보 정렬 → 코사인 원점수(cos_floor)로 coarse 컷
     2) 통과 후보를 리랭커로 정밀 재순위(있으면), 최종 신뢰도(confidence) 산출
@@ -127,6 +179,8 @@ def search(query: str, alpha: float, topk: int, types: set[str] | None,
     pool = []
     for i in np.argsort(-combined):
         c = _chunks[i]
+        if scope and not _scope_match(c, scope):
+            continue
         if types and c["chunk_type"] not in types:
             continue
         if float(dense_raw[i]) < floor and len(pool) >= topk:
@@ -316,9 +370,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", cache)
             self.end_headers()
             return self.wfile.write(body)
+        if path == "/api/sectors":
+            return self._json({"tree": _sector_tree})
         if path == "/api/meta":
             return self._json({**_meta, "count": len(_chunks),
                                "samples": _samples,
+                               "sectors": _sector_counts,
                                "reranker": RERANK_MODEL if _RERANK_ON else None,
                                "gate": {"mode": "rerank" if _RERANK_ON else "cosine",
                                         "tau": _gate["tau_rerank"] if _RERANK_ON else _gate["tau_cos"],
@@ -336,11 +393,13 @@ class Handler(BaseHTTPRequestHandler):
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
             use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
+            scope = [s.strip() for s in qs.get("scope", [""])[0].split(">") if s.strip()] or None
             t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau, use_rr)
+            hits, gate = search(q, alpha, topk, types, tau, use_rr, scope)
             ms = round((time.perf_counter() - t0) * 1000, 1)
             return self._json({"query": q, "alpha": alpha, "topk": topk,
                                "types": sorted(types) if types else [],
+                               "scope": scope or [], "scope_hint": _scope_hint(hits),
                                "elapsed_ms": ms, "count": len(hits),
                                "gate": gate, "hits": hits})
         if path == "/api/answer":
@@ -355,8 +414,9 @@ class Handler(BaseHTTPRequestHandler):
             t = qs.get("types", [""])[0]
             types = set(x for x in t.split(",") if x) or None
             use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
+            scope = [s.strip() for s in qs.get("scope", [""])[0].split(">") if s.strip()] or None
             t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau, use_rr)
+            hits, gate = search(q, alpha, topk, types, tau, use_rr, scope)
             search_ms = round((time.perf_counter() - t0) * 1000, 1)
             t1 = time.perf_counter()
             # 게이트: 전부 저신뢰면 LLM 호출 없이 '확인되지 않음' (할루시네이션 차단)
@@ -368,6 +428,7 @@ class Handler(BaseHTTPRequestHandler):
             gen_ms = round((time.perf_counter() - t1) * 1000, 1)
             return self._json({"query": q, "alpha": alpha, "topk": topk,
                                "types": sorted(types) if types else [],
+                               "scope": scope or [], "scope_hint": _scope_hint(hits),
                                "search_ms": search_ms, "gen_ms": gen_ms,
                                "count": len(hits), "gate": gate, "hits": hits, **ans})
         return self._send(404, b"not found", "text/plain; charset=utf-8")
