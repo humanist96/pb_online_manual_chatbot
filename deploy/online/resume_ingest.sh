@@ -4,4 +4,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 set -a; source deploy/online/.env.local; set +a
-python3 deploy/online/ingest_real.py --limit 9500
+# 무료 한도 일 10K 쓰기 — HYBRID 인덱스는 벡터 1건=2쓰기(dense+sparse)라 실효 5,000건/일
+python3 deploy/online/ingest_real.py --limit 4900

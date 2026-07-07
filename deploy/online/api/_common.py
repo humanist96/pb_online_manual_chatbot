@@ -152,12 +152,15 @@ def answer(q: str, hits: list[dict]) -> dict:
     if not OPENAI_KEY:
         return {"answer": extractive_answer(hits), "used_llm": False, "backend": "extractive"}
     ctx = "\n".join(f"[S{h['rank']}] ({h['path_str']}) {h['text']}" for h in hits)
-    try:
-        r = _post("https://api.openai.com/v1/chat/completions", OPENAI_KEY, {
-            "model": OPENAI_MODEL, "temperature": 0.2, "max_tokens": 600,
+    body = {"model": OPENAI_MODEL,
             "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                         {"role": "user", "content": f"[근거]\n{ctx}\n\n[질문]\n{q}"}],
-        }, timeout=30)
+                         {"role": "user", "content": f"[근거]\n{ctx}\n\n[질문]\n{q}"}]}
+    if OPENAI_MODEL.startswith(("gpt-4", "gpt-3.5")):
+        body.update(temperature=0.2, max_tokens=600)
+    else:  # gpt-5 계열 reasoning 모델 — max_tokens·temperature 미지원
+        body["max_completion_tokens"] = 700
+    try:
+        r = _post("https://api.openai.com/v1/chat/completions", OPENAI_KEY, body, timeout=30)
         text = r["choices"][0]["message"]["content"].strip()
         return {"answer": text, "used_llm": True, "backend": f"openai:{OPENAI_MODEL}"}
     except Exception:
