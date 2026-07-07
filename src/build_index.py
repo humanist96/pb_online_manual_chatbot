@@ -36,8 +36,25 @@ def main():
         pickle.dump(bm25, f)
     with open(INDEX_DIR / "chunks.json", "w", encoding="utf-8") as f:
         json.dump(chunks, f, ensure_ascii=False)
-    with open(INDEX_DIR / "meta.json", "w", encoding="utf-8") as f:
-        json.dump({"embed_model": EMBED_MODEL, "dim": dim, "count": len(chunks)}, f, ensure_ascii=False)
+    # 매뉴얼(화면/업무)·부문 분포 통계 + 기존 게이트(τ) 보존 — τ는 코퍼스 변경 시
+    # calibrate_threshold.py --write 재보정이 릴리스 게이트
+    manuals: dict[str, int] = {}
+    sectors: dict[str, int] = {}
+    for c in chunks:
+        m = c.get("manual") or "화면"
+        manuals[m] = manuals.get(m, 0) + 1
+        if c.get("sector"):
+            sectors[c["sector"]] = sectors.get(c["sector"], 0) + 1
+    meta = {"embed_model": EMBED_MODEL, "dim": dim, "count": len(chunks),
+            "manuals": manuals, "sectors": sectors}
+    meta_path = INDEX_DIR / "meta.json"
+    if meta_path.exists():
+        with open(meta_path, encoding="utf-8") as f:
+            prev = json.load(f)
+        if "gate" in prev:
+            meta["gate"] = prev["gate"]
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False)
 
     print(f"[build_index] indexed {len(chunks)} chunks  dim={dim}  model={EMBED_MODEL}")
     print(f"[build_index] wrote {INDEX_DIR}/ (dense.faiss, bm25.pkl, chunks.json, meta.json)")

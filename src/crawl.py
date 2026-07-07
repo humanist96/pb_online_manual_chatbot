@@ -7,14 +7,19 @@ RoboHelp 정적 토픽(AC*.html)을 HTTP GET 으로 받아 data/html/ 에 캐시
 사용:
   python src/crawl.py AC250400 AC250200 ACA51000 ACA50400   # 명시 목록
   python src/crawl.py --from-file data/account_topics.txt    # 한 줄에 하나
+  python src/crawl.py --base PM --from-file data/topics_pm/계좌관리.txt
+      # 업무매뉴얼 → data/html_pm/ + 본문 이미지 data/img_pm/
 """
 from __future__ import annotations
+import re
 import sys
 import pathlib
 import urllib.request
 
-BASE_URL = "http://211.255.203.234:8080/000/ST"
+SERVER = "http://211.255.203.234:8080/000"
+BASE_URL = f"{SERVER}/ST"
 OUT = pathlib.Path("data/html")
+IMG_OUT = None  # PM이면 data/img_pm
 
 
 def fetch(topic: str) -> bool:
@@ -30,15 +35,46 @@ def fetch(topic: str) -> bool:
             data = r.read()
         OUT.mkdir(parents=True, exist_ok=True)
         (OUT / f"{topic}.html").write_bytes(data)
-        print(f"[crawl] {topic}.html  ({len(data)} bytes)")
+        n_img = fetch_images(data) if IMG_OUT else 0
+        print(f"[crawl] {topic}.html  ({len(data)} bytes{f', img {n_img}' if n_img else ''})")
         return True
     except Exception as e:
         print(f"[crawl] {topic}: {e}", file=sys.stderr)
         return False
 
 
+def fetch_images(html_bytes: bytes) -> int:
+    """본문 참조 이미지 다운로드(assets/images/ 하위만, 템플릿·로고 제외). 캐시 존중."""
+    html = html_bytes.decode("utf-8", errors="replace")
+    n = 0
+    for src in set(re.findall(r'<img[^>]+src="([^"]+)"', html)):
+        if "assets/images/" not in src or "template" in src:
+            continue
+        name = src.rsplit("/", 1)[-1]
+        dst = IMG_OUT / name
+        if dst.exists():
+            continue
+        try:
+            with urllib.request.urlopen(f"{BASE_URL}/{src}", timeout=20) as r:
+                IMG_OUT.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(r.read())
+                n += 1
+        except Exception as e:
+            print(f"[crawl] img {name}: {e}", file=sys.stderr)
+    return n
+
+
 def main():
+    global BASE_URL, OUT, IMG_OUT
     args = sys.argv[1:]
+    if "--base" in args:
+        i = args.index("--base")
+        proj = args[i + 1].upper()
+        BASE_URL = f"{SERVER}/{proj}"
+        if proj != "ST":
+            OUT = pathlib.Path(f"data/html_{proj.lower()}")
+            IMG_OUT = pathlib.Path(f"data/img_{proj.lower()}")
+        args = args[:i] + args[i + 2:]
     topics: list[str] = []
     it = iter(args)
     for a in it:

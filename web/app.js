@@ -66,7 +66,7 @@ function saveStore() {
 }
 const trimHits = hits => (hits || []).map(h => ({
   rank: h.rank, chunk_type: h.chunk_type, section_path: h.section_path,
-  sector: h.sector, sector_path: h.sector_path,
+  sector: h.sector, sector_path: h.sector_path, manual: h.manual,
   text: h.text, screen_id: h.screen_id, screen_no: h.screen_no,
   source_url: h.source_url, confidence: h.confidence, low_conf: h.low_conf,
   dense: h.dense, sparse: h.sparse, cos: h.cos,
@@ -207,13 +207,26 @@ function turnBody(turn) {
 }
 function scopeBanner(turn) {
   const h = turn.scope_hint;
-  if (!h?.ambiguous || turn.scope?.length || turn.hintDismissed) return "";
-  const chips = h.sectors.slice(0, 3).map(s =>
-    `<button type="button" class="sb-chip sb-scope" data-sector="${esc(s.sector)}"
-       data-q="${esc(turn.q)}">${esc(s.sector)}에서만 (${s.count}건 · ${(+s.best).toFixed(2)})</button>`).join("");
-  return `<div class="scope-banner" role="status">
-    <span class="sb-t">근거가 여러 부문에 걸쳐 있어요 — 어느 업무 기준으로 볼까요?</span>
-    ${chips}<button type="button" class="sb-chip keep sb-keep">전체 유지</button></div>`;
+  if (!h || turn.hintDismissed) return "";
+  // ① 매뉴얼 레벨(화면/업무) 우선 — 스코프가 매뉴얼조차 없을 때
+  if (h.ambiguous_manual && !(turn.scope?.length)) {
+    const chips = h.manuals.slice(0, 2).map(m =>
+      `<button type="button" class="sb-chip sb-scope" data-scope="${esc((m.scope || [m.manual]).join(">"))}"
+         data-q="${esc(turn.q)}">${esc(m.manual)} 매뉴얼에서만 (${m.count}건 · ${(+m.best).toFixed(2)})</button>`).join("");
+    return `<div class="scope-banner" role="status">
+      <span class="sb-t">화면·업무 매뉴얼에 걸쳐 있어요 — 어느 매뉴얼 기준으로 볼까요?</span>
+      ${chips}<button type="button" class="sb-chip keep sb-keep">전체 유지</button></div>`;
+  }
+  // ② 부문 레벨 — 매뉴얼이 정해졌거나 단일 매뉴얼일 때
+  if (h.ambiguous && (turn.scope?.length || 0) <= 1) {
+    const chips = h.sectors.slice(0, 3).map(s =>
+      `<button type="button" class="sb-chip sb-scope" data-scope="${esc((s.scope || [s.sector]).join(">"))}"
+         data-q="${esc(turn.q)}">${esc(s.sector)}에서만 (${s.count}건 · ${(+s.best).toFixed(2)})</button>`).join("");
+    return `<div class="scope-banner" role="status">
+      <span class="sb-t">근거가 여러 부문에 걸쳐 있어요 — 어느 업무 기준으로 볼까요?</span>
+      ${chips}<button type="button" class="sb-chip keep sb-keep">전체 유지</button></div>`;
+  }
+  return "";
 }
 function renderTurn(turn) {
   const el = document.createElement("article");
@@ -243,18 +256,22 @@ function buildTree(hits) {
   // 전 부문 확장: 부문(sector)을 최상위 레벨로 — 부문·화면 노드는 scope(좁히기 경로)를 가진다
   const roots = new Map();
   for (const h of hits) {
-    const segs = [...(h.sector ? [h.sector] : []), ...(h.section_path || [])];
+    const prefix = h.manual ? [h.manual, h.sector].filter(Boolean)
+                            : (h.sector ? [h.sector] : []);
+    const segs = [...prefix, ...(h.section_path || [])];
     if (!segs.length) continue;
     if (!roots.has(segs[0]))
       roots.set(segs[0], { label: segs[0], children: new Map(), ranks: [],
-                           scope: h.sector ? [h.sector] : null });
+                           scope: prefix.length ? [prefix[0]] : null });
     let node = roots.get(segs[0]);
     segs.slice(1).forEach((seg, idx) => {
       if (!node.children.has(seg))
         node.children.set(seg, { label: seg, children: new Map(), ranks: [], scope: null });
       node = node.children.get(seg);
-      if (h.sector && idx === 0 && !node.scope)   // 화면 제목 레벨 → 화면 단위 스코프
-        node.scope = [...(h.sector_path || [h.sector]), h.screen_id];
+      if (!node.scope && prefix.length && idx < prefix.length - 1)
+        node.scope = prefix.slice(0, idx + 2);          // 부문 레벨 스코프
+      if (!node.scope && prefix.length && idx === prefix.length - 1)
+        node.scope = [...(h.sector_path || prefix), h.screen_id];  // 문서 레벨
     });
     node.ranks.push(h.rank);
   }
@@ -315,6 +332,7 @@ function evCard(h, q) {
       <button type="button" class="cite" data-r="${h.rank}">S${h.rank}</button>
       <span class="t-dot t-${esc(h.chunk_type)}"></span>
       <span class="evc-type">${esc(TYPES[h.chunk_type] || h.chunk_type)}</span>
+      ${h.manual === "업무" ? '<span class="m-badge">업무</span>' : ""}
       ${low ? '<span class="low-flag">참고용</span>' : ""}
       <span class="evc-conf mono">${h.confidence != null ? h.confidence.toFixed(2) : ""}</span>
     </div>
@@ -551,10 +569,10 @@ document.addEventListener("click", e => {
     return;
   }
   const sbScope = e.target.closest(".sb-scope");
-  if (sbScope) {                        // 모호성 배너 → 부문 확정 후 같은 질문 재검색
+  if (sbScope) {                        // 모호성 배너 → 매뉴얼/부문 확정 후 재검색
     const t = S.turns.find(x => x.id === sbScope.closest(".turn")?.dataset.turn);
     if (t) { t.hintDismissed = true; updateTurn(t); }
-    setScope([sbScope.dataset.sector]);
+    setScope(sbScope.dataset.scope.split(">"));
     ask(sbScope.dataset.q);
     return;
   }

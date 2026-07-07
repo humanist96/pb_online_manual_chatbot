@@ -71,7 +71,8 @@ _RERANK_ON = get_reranker() is not None
 
 def _sample_questions(chunks: list[dict], limit: int = 8) -> list[str]:
     """첫 화면 추천 질문 — qa 청크의 실제 질문(section_path 말단)에서 추출.
-    화면당 1개씩, 짧고 물음표로 끝나는 것만. 결정적 순서(청크 순서)."""
+    화면당 1개씩, 짧고 물음표로 끝나는 것만. 결정적 순서(청크 순서).
+    업무매뉴얼 청크가 있으면 끝 2슬롯은 업무 문서 제목 기반 질문으로 채운다."""
     out, seen = [], set()
     for c in chunks:
         if c.get("chunk_type") != "qa" or c["screen_id"] in seen:
@@ -82,7 +83,18 @@ def _sample_questions(chunks: list[dict], limit: int = 8) -> list[str]:
             seen.add(c["screen_id"])
         if len(out) >= limit:
             break
-    return out
+    pm, pm_seen = [], set()
+    for c in chunks:
+        if len(pm) >= 2:
+            break
+        if c.get("manual") != "업무":
+            continue
+        t = (c.get("title") or "").strip()
+        if t and t not in pm_seen and 4 <= len(t) <= 30:
+            pm.append(t + ("를 알려주세요" if t.endswith("절차")
+                           else " 절차를 알려주세요"))
+            pm_seen.add(t)
+    return (out[:limit - len(pm)] + pm) if pm else out
 
 
 _samples = _sample_questions(_chunks)
@@ -144,16 +156,29 @@ def _scope_match(chunk: dict, scope: list[str]) -> bool:
 
 
 def _scope_hint(hits: list[dict]) -> dict:
-    """근거의 부문 분포 — 교차 오염 감지. 상위 두 부문의 최고 신뢰도가 근소하면 모호."""
-    by: dict[str, dict] = {}
+    """근거 분포 — 교차 오염 감지 2단계: ① 매뉴얼(화면/업무) ② 부문.
+    각 항목에 scope(재검색용 경로)를 실어 UI가 원클릭 재스코프하게 한다."""
+    secs: dict[str, dict] = {}
+    mans: dict[str, dict] = {}
     for h in hits:
+        sp = h.get("sector_path") or []
+        man = h.get("manual") or (sp[0] if sp else "")
         s = h.get("sector") or "미분류"
-        d = by.setdefault(s, {"sector": s, "count": 0, "best": 0.0})
+        d = secs.setdefault(s, {"sector": s, "count": 0, "best": 0.0,
+                                "scope": sp[:2] if len(sp) >= 2 else [s]})
         d["count"] += 1
         d["best"] = max(d["best"], h["confidence"])
-    secs = sorted(by.values(), key=lambda x: -x["best"])
-    ambiguous = len(secs) >= 2 and (secs[0]["best"] - secs[1]["best"]) < 0.08
-    return {"ambiguous": ambiguous, "sectors": secs}
+        if man:
+            m = mans.setdefault(man, {"manual": man, "count": 0, "best": 0.0,
+                                      "scope": [man]})
+            m["count"] += 1
+            m["best"] = max(m["best"], h["confidence"])
+    sec_l = sorted(secs.values(), key=lambda x: -x["best"])
+    man_l = sorted(mans.values(), key=lambda x: -x["best"])
+    return {"ambiguous": len(sec_l) >= 2 and (sec_l[0]["best"] - sec_l[1]["best"]) < 0.08,
+            "sectors": sec_l,
+            "ambiguous_manual": len(man_l) >= 2 and (man_l[0]["best"] - man_l[1]["best"]) < 0.10,
+            "manuals": man_l}
 
 
 def search(query: str, alpha: float, topk: int, types: set[str] | None,

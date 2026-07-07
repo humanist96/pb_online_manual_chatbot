@@ -25,9 +25,23 @@ else
   echo "✗ data/account_topics.txt 없음 — 토픽 코드를 인자로 주거나 목록 파일을 배치하세요"; exit 1
 fi
 
-# 2) 청크
+# 1-b) 업무매뉴얼(PM) 수집 — 부문 목록이 있으면 함께 갱신 (이미지 포함)
+if [ "$#" -eq 0 ] && [ -d data/topics_pm ]; then
+  echo "▶ 업무매뉴얼 수집 (data/topics_pm/*.txt)"
+  for f in data/topics_pm/*.txt; do
+    "$PY" src/crawl.py --base PM --from-file "$f"
+  done
+  echo "▶ 업무매뉴얼 이미지 OCR (증분)"
+  "$PY" src/extract_pm_images.py --ocr || echo "  (easyocr 미설치 — 도식 텍스트화 생략)"
+fi
+
+# 2) 청크 — 화면(data/html) + 업무(data/html_pm, 있으면)
 echo "▶ 청크 생성"
-"$PY" src/to_chunks.py data/html/*.html
+if compgen -G "data/html_pm/*.html" > /dev/null; then
+  "$PY" src/to_chunks.py data/html/*.html data/html_pm/*.html
+else
+  "$PY" src/to_chunks.py data/html/*.html
+fi
 
 # 3) 색인 (오프라인)
 echo "▶ 색인 빌드"

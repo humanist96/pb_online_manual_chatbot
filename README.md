@@ -155,12 +155,13 @@
 
 | 단계 | 스크립트 | 입력 → 출력 | 핵심 |
 |---|---|---|---|
-| ⓪ 목차 | `crawl_toc.py` | TOC → `manifest.json` | RoboHelp TOC **재귀 파싱** — 19부문·4,109토픽, 브레드크럼 상위 계층의 단일 원천 |
-| ① 수집 | `crawl.py` | 토픽 → `data/html/` | 부문별 목록(`data/topics/`)으로 증분 수집 |
-| ② 파싱 | `parse.py` | HTML → 구조화 dict | CSS class 기반 **계층 복원** (품질의 핵심) |
+| ⓪ 목차 | `crawl_toc.py` | TOC → `manifest.json` | RoboHelp TOC **재귀 파싱** — 화면 19부문·4,109토픽 + 업무 10부문(`--base PM` → `manifest_pm.json`), 브레드크럼 상위 계층의 단일 원천 |
+| ① 수집 | `crawl.py` | 토픽 → `data/html/` | 부문별 목록(`data/topics/`)으로 증분 수집 · `--base PM`은 `data/html_pm/` + 본문 이미지(`data/img_pm/`)까지 |
+| ② 파싱 | `parse.py` / `parse_pm.py` | HTML → 구조화 dict | CSS class 기반 **계층 복원** (품질의 핵심) — 화면/업무 템플릿이 달라 파서 분리 |
+| ②′ 도식 | `extract_pm_images.py` | 이미지 → `pm_image_text.json` | 업무매뉴얼의 흐름도·표 이미지를 **OCR(EasyOCR)+VLM(Ollama qwen2.5vl)** 로 텍스트화 — 전부 로컬, sha1 증분 캐시 |
 | ③ 엑셀 | `to_xlsx.py` | dict → `data/xlsx/` | 수작업 샘플과 동일 B/C 2열 포맷 |
-| ④ 청크 | `to_chunks.py` | dict → `chunks.jsonl` | 브레드크럼 1개 = 청크 1개, 경로 보존 |
-| ⑤ 색인 | `build_index.py` | 청크 → `data/index/` | 로컬 임베딩(FAISS) + BM25 |
+| ④ 청크 | `to_chunks.py` | dict → `chunks.jsonl` | 브레드크럼 1개 = 청크 1개, 경로 보존 · `manual`(화면/업무) 필드가 `sector_path` 루트 |
+| ⑤ 색인 | `build_index.py` | 청크 → `data/index/` | 로컬 임베딩(FAISS) + BM25 — 화면+업무 **통합 단일 인덱스** |
 
 ### 파서 계층 복원 규칙 (`parse.py`)
 
@@ -168,6 +169,17 @@
 - `th`=항목명, `td>ul>li` = 항목 · `li.icon01/icon02` 중첩 깊이로 부모-자식 복원
 - `bground_blue` 셀은 `"용어 : 설명"` 첫 콜론 분리 · `table.T_QAbox` → Q&A
 - 테이블이 **자식/형제 어느 쪽으로 파싱돼도** 처리, 테이블 없는 화면은 `div.h2` 보존
+
+### 화면/업무 이원 매뉴얼
+
+PowerBASE 매뉴얼은 **화면매뉴얼**(화면 조작법, `/000/ST/`)과 **업무매뉴얼**(업무 절차,
+`/000/PM/` — 계좌관리·출납관리 등 10부문)의 이원 구조입니다. 두 매뉴얼을 하나의
+인덱스로 통합하되 `sector_path` 루트에 매뉴얼 레벨을 두어(`화면 › 계좌 › …`,
+`업무 › 계좌관리 › …`) 스코프 셀렉터 1열에서 **화면/업무를 먼저 선택**할 수 있고,
+"계좌 개설"처럼 양쪽에 걸치는 질문은 배너가 **"화면 기준? 업무 기준?"** 을 먼저
+묻습니다(`scope=업무` 지정 시 화면 근거 완전 배제). 업무매뉴얼 특유의 흐름도/표
+이미지는 로컬 OCR+VLM으로 텍스트화되어 "계좌개설 절차" 같은 질문에 단계·TR코드로
+답합니다(근거 카드에 `업무` 뱃지 + 원본 이미지 마커).
 
 ---
 
@@ -183,7 +195,11 @@ uv pip install --python .venv/bin/python -r requirements.txt \
 # 2) 색인 (사내망; 최초 1회 임베딩 모델 ~440MB 다운로드 후 오프라인)
 PY=.venv/bin/python
 $PY src/crawl.py --from-file data/account_topics.txt
-$PY src/to_chunks.py data/html/*.html
+# (선택) 업무매뉴얼 — 수집(+이미지) → OCR 텍스트화
+uv pip install --python .venv/bin/python -r requirements-pm.txt
+for f in data/topics_pm/*.txt; do $PY src/crawl.py --base PM --from-file "$f"; done
+$PY src/extract_pm_images.py --ocr
+$PY src/to_chunks.py data/html/*.html data/html_pm/*.html
 $PY src/build_index.py
 
 # 3) 실행

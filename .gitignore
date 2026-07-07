@@ -17,6 +17,8 @@ __pycache__/
 # crawl.py + build_index.py 로 사내망에서 재생성.
 # 공개 저장소에 사내 금융시스템 매뉴얼 원문을 올리지 않기 위해 제외.
 data/html/
+data/html_pm/
+data/img_pm/
 data/xlsx/
 data/index/
 data/*.jsonl
@@ -47,3 +49,6 @@ video/remotion/public/fonts/
 docs/report/out/*
 !docs/report/out/.gitkeep
 docs/report/template/PretendardVariable.woff2
+
+# 교육자료 단일본 빌드 산출물 (build_standalone.py 로 재생성)
+docs/edu/out/

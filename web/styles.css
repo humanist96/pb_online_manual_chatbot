@@ -420,6 +420,10 @@ body.is-empty .dock::before{display:none}
 .t-overview{background:var(--t-overview)} .t-description{background:var(--t-description)}
 .t-glossary{background:var(--t-glossary)} .t-related{background:var(--t-related)} .t-qa{background:var(--t-qa)}
 .evc-type{font-size:11.5px; color:var(--ink-2); font-weight:600}
+.m-badge{
+  font-size:10px; font-weight:700; color:var(--blue,#46708f); padding:1px 7px;
+  border-radius:100px; border:1px solid #c7d5e0; background:#eef4f8;
+}
 .low-flag{
   font-size:10px; font-weight:700; color:var(--warn); padding:1px 8px;
   border-radius:100px; border:1px solid #e8d5ad; background:#fdf6e8;

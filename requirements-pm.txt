@@ -1,0 +1,6 @@
+# 업무매뉴얼(PM) 이미지 텍스트화 전용 — 본체(requirements.txt)와 분리
+# torch는 본체 CPU 휠을 재사용하므로 여기서 재지정하지 않는다.
+#   uv pip install --python .venv/bin/python -r requirements-pm.txt \
+#       --extra-index-url https://download.pytorch.org/whl/cpu
+# VLM 패스는 별도 Ollama 설치 필요: ollama pull qwen2.5vl:7b
+easyocr>=1.7

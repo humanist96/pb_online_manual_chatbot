@@ -65,7 +65,7 @@ def eval_recall():
             sec_acc += (hits[0].get("sector") == c["sector"])
         amb += webapp._scope_hint(hits)["ambiguous"]
         hits_s, _ = webapp.search(q, 0.5, 5, None, use_rerank=False,
-                                  scope=[c["sector"]])
+                                  scope=[c.get("manual") or "화면", c["sector"]])
         r5_scoped += c["screen_id"] in [h["screen_id"] for h in hits_s]
 
     print(f"\n── 평가 1: 부문별 qa {n}건 (부문당 ≤{PER_SECTOR}) · 코사인 게이트 ──")
@@ -93,6 +93,42 @@ def eval_homonym():
           f"  (동음이의 세트는 높아야 정상 — 배너가 뜰 상황)")
 
 
+# 화면(조작법)·업무(절차) 양쪽에 존재하는 교차 질의 — 매뉴얼 모호성 스트레스 세트
+MANUAL_CROSS_QUERIES = [
+    "계좌 개설", "계좌 해지", "출금 처리", "입금 처리", "고객 정보 등록",
+    "카드 발급", "비밀번호 등록", "계좌 이관", "명의 변경", "상속 처리",
+    "대리인 등록", "휴면 계좌", "증거금 관리", "수표 지급", "어음 관리",
+    "펀드 매수", "신용 거래", "대체 출고", "배당 처리", "권리 행사",
+]
+
+
+def eval_manual_cross():
+    """평가 3: 매뉴얼 교차 — ①스코프 없음: 매뉴얼 모호성 감지 ②scope 지정: 완전 분리."""
+    if not any(c.get("manual") == "업무" for c in webapp._chunks):
+        print("\n── 평가 3: 건너뜀 — 인덱스에 업무매뉴얼 청크 없음 (재색인 전) ──")
+        return
+    n = len(MANUAL_CROSS_QUERIES)
+    amb = both = leak_s = leak_p = 0
+    print(f"\n── 평가 3: 매뉴얼 교차 질의 {n}건 — 화면/업무 분리 ──")
+    for q in MANUAL_CROSS_QUERIES:
+        hits, _ = webapp.search(q, 0.5, 5, None, use_rerank=False)
+        hint = webapp._scope_hint(hits)
+        mans = {m["manual"] for m in hint.get("manuals", [])}
+        both += len(mans) >= 2
+        amb += bool(hint.get("ambiguous_manual"))
+        h_s, _ = webapp.search(q, 0.5, 5, None, use_rerank=False, scope=["화면"])
+        h_p, _ = webapp.search(q, 0.5, 5, None, use_rerank=False, scope=["업무"])
+        leak_s += any(h.get("manual") == "업무" for h in h_s)
+        leak_p += any(h.get("manual") == "화면" for h in h_p)
+        dist = " · ".join(f"{m['manual']}({m['count']},{m['best']:.2f})"
+                          for m in hint.get("manuals", []))
+        mark = "⚠" if hint.get("ambiguous_manual") else " "
+        print(f"  {mark} {q:<10} → {dist}")
+    print(f"\n  양매뉴얼 분산 {both}/{n} = {both/n:.0%} · 매뉴얼 모호성 감지 {amb}/{n} = {amb/n:.0%}")
+    print(f"  scope=화면 누수 {leak_s}/{n} · scope=업무 누수 {leak_p}/{n}  (둘 다 0이어야 함)")
+
+
 if __name__ == "__main__":
     eval_recall()
     eval_homonym()
+    eval_manual_cross()

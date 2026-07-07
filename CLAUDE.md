@@ -22,7 +22,8 @@ uv pip install --python .venv/bin/python -r requirements.txt \
 ollama pull qwen2.5:7b-instruct
 
 # 테스트 (pytest 불필요, assert 기반 단일 스크립트)
-.venv/bin/python tests/test_parse.py   # = make test
+.venv/bin/python tests/test_parse.py      # 화면매뉴얼 파서 골든 (= make test)
+.venv/bin/python tests/test_parse_pm.py   # 업무매뉴얼 파서 골든
 ```
 
 `Makefile`이 자주 쓰는 흐름을 감싼다: `make install`(deploy/install.sh) → `make build`(deploy/build.sh: 수집→청크→색인 원스텝, 사내망 필요) → `make run`(deploy/run.sh: 오프라인 기본 서버 실행). Docker는 `make docker-build` / `docker-up`.
@@ -31,15 +32,21 @@ ollama pull qwen2.5:7b-instruct
 
 ```bash
 python src/crawl_toc.py                                   # TOC 재귀 → data/manifest.json + data/topics/<부문>.txt (사내망)
+python src/crawl_toc.py --base PM                         # 업무매뉴얼 TOC → data/manifest_pm.json + data/topics_pm/
 python src/crawl.py AC250400                              # 원본 HTML → data/html/
 python src/crawl.py --from-file data/topics/계좌.txt      # 부문 단위 수집 (사내망 211.255.203.234 필요)
+python src/crawl.py --base PM --from-file data/topics_pm/계좌관리.txt  # 업무매뉴얼 → data/html_pm/ + 이미지 data/img_pm/
 python src/parse.py data/html/AC250400.html              # HTML → 구조화 dict (검증/디버깅용, stderr에 통계)
-python src/to_chunks.py data/html/*.html                 # → data/chunks.jsonl
+python src/parse_pm.py data/html_pm/ACP01010.html        # 업무매뉴얼 파서 (템플릿 상이 — 별도 모듈)
+python src/extract_pm_images.py --ocr                    # PM 이미지 OCR 전량 → data/pm_image_text.json (증분 캐시)
+python src/extract_pm_images.py --vlm                    # 도식 VLM 텍스트화 — 본문 빈약 문서 우선 (Ollama qwen2.5vl:7b)
+python src/extract_pm_images.py --vlm --backend claude --all  # 개발기 전용: claude CLI 비전(외부 전송 — 예외 구역, --shard k/n 병렬)
+python src/to_chunks.py data/html/*.html data/html_pm/*.html  # → data/chunks.jsonl (디렉터리로 화면/업무 자동 판별)
 python src/to_xlsx.py data/html/AC250400.html            # → data/xlsx/*.xlsx (샘플 골든 포맷 재현)
-python src/build_index.py                                # data/chunks.jsonl → data/index/ (FAISS + BM25)
+python src/build_index.py                                # data/chunks.jsonl → data/index/ (FAISS + BM25, 화면+업무 통합)
 python src/chatbot.py "질문..."                          # 단발 질의 (인자 없으면 REPL)
 python src/webapp.py                                     # 매뉴얼 데스크(챗 UI+QA 모드) → http://localhost:8000
-python src/eval_scope.py                                 # 교차 오염 평가 (Recall@5·부문 정확도·동음이의)
+python src/eval_scope.py                                 # 교차 오염 평가 (Recall@5·부문 정확도·동음이의·매뉴얼 교차)
 ```
 
 스크립트는 `src/`를 작업 디렉터리 기준으로 실행하되, 상대 경로(`data/...`)를 그대로 쓰므로 **repo 루트에서 실행**한다. `to_chunks.py`/`to_xlsx.py`는 `from parse import ...`로 형제 모듈을 임포트하므로 `python src/xxx.py` 형태로 호출된다(같은 디렉터리라 동작).
@@ -60,13 +67,17 @@ python src/eval_scope.py                                 # 교차 오염 평가 
 
 핵심은 **브레드크럼(breadcrumb)** 개념이다. 파서가 매뉴얼의 계층 구조를 `{path:[세그먼트...], text}` 리스트로 평탄화하고, 브레드크럼 1개 = 청크 1개 = 검색/출처 단위가 된다. `path`의 루트는 항상 문서 제목으로 통일된다.
 
+매뉴얼은 **이원 구조**: 화면매뉴얼(`/000/ST/`, 화면 조작법)과 업무매뉴얼(`/000/PM/`, 업무 절차). 청크의 `manual` 필드("화면"|"업무")가 1차 구분이고 `sector_path`의 루트가 매뉴얼 레벨이다(`["화면","계좌",...]` / `["업무","계좌관리",...]`) — 스코프 필터·셀렉터·근거 지도가 무수정으로 매뉴얼 차원까지 동작하는 근거. 업무매뉴얼 청크 id는 `pm:` 접두.
+
 - **`src/parse.py`** — 품질의 90%가 결정되는 핵심. RoboHelp HTML의 CSS class 계층을 구조화 트리로 복원한다. 규칙: `div.title_box`(대분류) → `div.Step00_icon`(중분류) → `div.Step1_Nxx`(단계) → `table tr`(th=항목/td=목록). `li.icon01`/`li.icon02`의 깊이로 부모-자식 관계를 복원하고, `td` 텍스트를 첫 콜론(`:`) 기준으로 용어/설명 분리(`split_term`, 오탐 방지로 용어 40자 제한). 무클래스 `li`는 직전 항목 설명의 줄바꿈 연속으로 병합. `table.T_QAbox`의 `.Que`/`.Ans`는 Q&A로 수집. 파싱 규칙 변경 시 반드시 `tests/test_parse.py`의 골든값을 확인할 것.
-- **`src/to_chunks.py`** — 브레드크럼 → 청크. `embed_text = "[부문] 경로 > ... : 설명"` 형태로 부문·전체 경로를 임베딩 텍스트에 보존(검색 정확도·출처 근거 강화). `data/manifest.json`(crawl_toc.py 산출)을 조인해 `sector`/`sector_path`(TOC 경로)를 부여. `chunk_type`은 `path[1]` 섹션명으로 결정(overview/description/glossary/related/qa).
+- **`src/parse_pm.py`** — 업무매뉴얼(PM) 전용 파서(템플릿이 화면매뉴얼과 완전 상이 — 별도 모듈로 parse.py 골든 무위험). 규칙: `div#content` 아래 헤딩(`p.s-01`/`h3` 계열)→`div` 본문 쌍, `ol > li.c-N/a-x/h-N` 3계층 목록(lxml이 li를 조기 종료시키므로 순차 순회로 직전 제목에 귀속), `table.box_style1`은 th 헤더 기준 (항목,설명) 분해, `dl`(dt/dd) 변형 지원. **이미지 도식이 본체인 문서**(ACP02010류)는 `data/pm_image_text.json` 캐시(extract_pm_images.py 산출)를 파싱 시점에 브레드크럼으로 병합("(도식 텍스트화: 파일명)" 마커). 골든은 `tests/test_parse_pm.py`.
+- **`src/extract_pm_images.py`** — PM 이미지 텍스트화 2패스(전부 로컬): ①EasyOCR(ko/en) 전량 ②Ollama `qwen2.5vl:7b` VLM이 OCR 텍스트를 프롬프트에 주입받아 흐름도·표를 단계 서술로 재구성(코드 환각 억제). sha1 캐시로 증분 안전, `--vlm`은 본문 빈약 문서 우선.
+- **`src/to_chunks.py`** — 브레드크럼 → 청크. `embed_text = "[화면/부문] 경로 > ... : 설명"` 형태로 매뉴얼·부문·전체 경로를 임베딩 텍스트에 보존(검색 정확도·출처 근거 강화). 입력 디렉터리(`html_pm` 포함 여부)로 파서·`manual` 값을 자동 선택하고, `data/manifest.json`/`manifest_pm.json`을 조인해 `sector`/`sector_path`(매뉴얼 루트 + TOC 경로)를 부여. `chunk_type`은 `path[1]` 섹션명으로 결정(overview/description/glossary/related/qa — PM은 overview/description으로 수렴).
 - **`src/to_xlsx.py`** — 구조화 트리 → 원본 샘플과 동일 계열 XLSX(B/C 2열). HTML에서 유도 가능한 메타(제목·코드·화면번호·AUP)만 채우고 발행부서·버전·성명 등은 공란(HTML에 없음).
 - **`src/build_index.py`** — 청크 → `data/index/`: `dense.faiss`(정규화 내적=코사인), `bm25.pkl`, `chunks.json`, `meta.json`.
 - **`src/rag_common.py`** — 공용 헬퍼(임베더 싱글턴, 청크 로딩)와 **한국어 BM25 토크나이저** `tokenize_ko`(한글은 음절 unigram+bigram, 영숫자는 소문자 토큰). 인덱스 빌드와 질의가 같은 토크나이저를 써야 하므로 여기 한 곳에 둔다.
 - **`src/chatbot.py`** — 하이브리드 검색(`hybrid_search`: dense+sparse 각각 min-max 정규화 후 `alpha` 가중합) → top-k 청크를 Ollama 프롬프트에 주입. `[S1],[S2]` 인용마커로 출처를 강제하고, 컨텍스트에 근거 없으면 "매뉴얼에서 확인되지 않습니다."로 답하도록 시스템 프롬프트로 억제. **Ollama 미연결 시 추출형(extractive) 폴백**으로 근거 청크를 그대로 반환.
-- **`src/webapp.py`** — 하이브리드 검색 품질 검증용 계측 콘솔이자 답변 서버. 표준 라이브러리 `http.server`만 사용(무추가 의존). API: `/api/meta`(인덱스 메타, Docker 헬스체크 대상), `/api/search`(dense/sparse/combined 점수 노출), `/api/answer`(검색+답변 생성). 답변 백엔드는 `LLM_BACKEND=auto` 시 claude CLI(개발기 편의, 헤드리스 `claude -p` 서브프로세스) → Ollama → 추출형 합성(`extractive_answer`) 순으로 자동 폴백 — 폐쇄망 배포에서는 claude CLI가 없으므로 자연히 ollama/추출형만 쓰인다. 프런트는 `web/`(index.html·styles.css·app.js·fonts/PretendardVariable.woff2)이며 정적 자산은 webapp.py의 화이트리스트 확장자 라우트로 서빙(경로 탈출 방지). UI는 대화 스레드(상담 모드 기본) + 근거 지도/카드 패널 구조이고, `Q` 키 또는 `?qa=1`로 QA 계측 모드(α·τ·top-k, dense/sparse) 토글, `?q=`로 질문 딥링크, 컴포저 '정밀' 토글이 요청당 `rerank=0/1`로 게이트 모드(코사인/리랭커)를 전환. 프런트는 `/api/search`(근거 선노출)→`/api/answer` 2단 호출. `/api/meta`의 `samples`(qa 청크에서 추출한 추천 질문)를 첫 화면 칩으로 사용. 전 부문 스코프: `scope=계좌>고객관리` 경로 접두 필터(`_scope_match`), 응답의 `scope_hint`가 근거 부문 분포·모호성(상위 두 부문 best 차 <0.08)을 알려 UI 배너를 띄운다. `/api/sectors`가 스코프 셀렉터용 TOC 트리 제공. chatbot.py와 검색·프롬프트 로직이 별도 구현으로 중복되어 있는 점에 유의(수정 시 양쪽 확인).
+- **`src/webapp.py`** — 하이브리드 검색 품질 검증용 계측 콘솔이자 답변 서버. 표준 라이브러리 `http.server`만 사용(무추가 의존). API: `/api/meta`(인덱스 메타, Docker 헬스체크 대상), `/api/search`(dense/sparse/combined 점수 노출), `/api/answer`(검색+답변 생성). 답변 백엔드는 `LLM_BACKEND=auto` 시 claude CLI(개발기 편의, 헤드리스 `claude -p` 서브프로세스) → Ollama → 추출형 합성(`extractive_answer`) 순으로 자동 폴백 — 폐쇄망 배포에서는 claude CLI가 없으므로 자연히 ollama/추출형만 쓰인다. 프런트는 `web/`(index.html·styles.css·app.js·fonts/PretendardVariable.woff2)이며 정적 자산은 webapp.py의 화이트리스트 확장자 라우트로 서빙(경로 탈출 방지). UI는 대화 스레드(상담 모드 기본) + 근거 지도/카드 패널 구조이고, `Q` 키 또는 `?qa=1`로 QA 계측 모드(α·τ·top-k, dense/sparse) 토글, `?q=`로 질문 딥링크, 컴포저 '정밀' 토글이 요청당 `rerank=0/1`로 게이트 모드(코사인/리랭커)를 전환. 프런트는 `/api/search`(근거 선노출)→`/api/answer` 2단 호출. `/api/meta`의 `samples`(qa 청크에서 추출한 추천 질문)를 첫 화면 칩으로 사용. 전 매뉴얼·부문 스코프: `scope=화면>계좌>고객관리` 경로 접두 필터(`_scope_match`, 루트=매뉴얼 레벨), 응답의 `scope_hint`가 2단계 모호성을 알린다 — ①`manuals`/`ambiguous_manual`(화면·업무 best 차 <0.10, 배너가 "화면 기준? 업무 기준?"을 먼저 물음) ②부문 분포·`ambiguous`(상위 두 부문 best 차 <0.08). `/api/sectors`가 스코프 셀렉터용 TOC 트리 제공(루트가 화면/업무 2계층). chatbot.py와 검색·프롬프트 로직이 별도 구현으로 중복되어 있는 점에 유의(수정 시 양쪽 확인).
 
 ## Deployment (리눅스 서버)
 
