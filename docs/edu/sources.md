@@ -44,6 +44,16 @@
 | C8 | 프롬프트 엔지니어링 | Prompt engineering overview | https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview |
 | C9 | 공통 워크플로 | Common workflows | https://code.claude.com/docs/en/common-workflows |
 
+## D. 업무매뉴얼 확장 — 도식 텍스트화 (2026-07-07, 저장소 내부 소스)
+
+> 외부 URL이 아니라 이 저장소의 실제 구현 파일. "업무매뉴얼 확장 — 이원 매뉴얼과 도식 텍스트화" 슬라이드의 근거.
+
+| # | 주제 | 파일 / 문서 | 비고 |
+|---|---|---|---|
+| D1 | PM 템플릿 전용 파서 | `src/parse_pm.py` | 업무매뉴얼(PM) HTML → 구조화 트리, 골든 `tests/test_parse_pm.py` 3종 |
+| D2 | 이미지 도식 텍스트화 | `src/extract_pm_images.py` | 2패스 — EasyOCR(ko/en) 전량 추출 → VLM(ollama qwen2.5vl / claude CLI 비전)이 OCR 텍스트 주입받아 흐름도 단계 재구성, sha1 캐시 |
+| D3 | 확장 계획·실측 | `업무매뉴얼확장_계획.md` | 이원 매뉴얼 체계·매뉴얼 레벨 스코프·통합 44,340청크·τ 0.5641·품질 실측(Recall@5 100%·부문 top1 94.7%·모호성 감지 90%) |
+
 ## 발췌 메모 (슬라이드 반영 근거)
 
 - **A8 Contextual Retrieval**: 청크에 문맥 보존 시 검색 실패율 35%↓, +BM25 하이브리드 49%↓, +리랭킹 67%↓ — 우리 "브레드크럼 경로를 embed_text에 보존" 설계의 정량 근거

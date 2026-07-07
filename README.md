@@ -2,15 +2,15 @@
 
 ![PowerBASE 계좌 매뉴얼 RAG 챗봇](assets/banner.svg)
 
-# PowerBASE 계좌 매뉴얼 RAG Q&A 챗봇
+# PowerBASE 매뉴얼 RAG Q&A 챗봇
 
-**사내 원장시스템 매뉴얼을 자연어로 질문하고, 근거(출처)와 함께 답을 받는 100% 로컬 RAG 챗봇**
+**사내 원장시스템의 화면·업무 매뉴얼을 자연어로 질문하고, 근거(출처)와 함께 답을 받는 100% 로컬 RAG 챗봇**
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Local](https://img.shields.io/badge/100%25-Local_·_Offline-2EC4B6)](#)
 [![Open Source](https://img.shields.io/badge/Stack-Open_Source-brightgreen)](#)
-[![Screens](https://img.shields.io/badge/화면-4%2C108_·_19부문-f5821f)](#)
-[![Chunks](https://img.shields.io/badge/청크-39%2C240-f5821f)](#)
+[![Screens](https://img.shields.io/badge/화면_4%2C108_·_19부문-%2B_업무_390_·_10부문-f5821f)](#)
+[![Chunks](https://img.shields.io/badge/청크-44%2C340-f5821f)](#)
 [![Search](https://img.shields.io/badge/Search-Hybrid_Dense%2BBM25-8A2BE2)](#)
 [![LLM](https://img.shields.io/badge/LLM-Ollama_|_Claude_CLI-e4670a)](#)
 [![Deploy](https://img.shields.io/badge/Deploy-Docker_|_systemd-2496ED?logo=docker&logoColor=white)](#)
@@ -45,8 +45,9 @@
 - 🧭 **계층 경로 보존** — `화면 > 화면설명 > 조건입력 > 상품유형 > 위탁계좌` 브레드크럼을 문맥·출처로 활용
 - 💬 **대화형 매뉴얼 데스크** — 스레드형 Q&A + 질문 이력 + 후속질문 제안, 인용 `[S1]` ↔ 근거 카드 양방향 하이라이트
 - 🗺️ **근거 지도** — 답변 근거들의 브레드크럼 경로를 병합한 트리로 "매뉴얼 어디에서 왔는지"를 한눈에
-- 🗂️ **전 부문 전량** — RoboHelp TOC 재귀 크롤링으로 **19부문 / 4,108화면 / 39,240청크** 자동 색인
-- 🧭 **브레드크럼 스코프** — 질문 범위를 부문>중분류>화면으로 선택, 근거가 여러 부문에 걸치면 **모호성 배너**로 원클릭 범위 확정(교차 오염 방지)
+- 🗂️ **화면+업무 전량** — RoboHelp TOC 재귀 크롤링으로 **화면 19부문/4,108화면 + 업무 10부문/390문서 = 44,340청크** 통합 색인
+- 🖼️ **도식 텍스트화** — 업무매뉴얼의 흐름도·표 이미지 483장을 OCR+VLM 2패스로 단계 서술화, "계좌개설 절차" 질문에 **TR코드 포함 단계 답변**
+- 🧭 **브레드크럼 스코프** — 질문 범위를 **매뉴얼(화면/업무)>부문>중분류>화면**으로 선택, 근거가 매뉴얼·부문에 걸치면 **모호성 배너**로 원클릭 범위 확정(교차 오염 방지)
 - 🔒 **100% 로컬·오프라인** — 임베딩·검색·LLM·폰트 모두 로컬, 외부 상용 API 불필요(폐쇄망 대응)
 - 🎛️ **QA 모드** — `Q` 키(또는 `?qa=1`)로 계측 레이어 토글: α·τ·top-k 슬라이더, dense/sparse 기여도, 게이트 상태
 - 🚀 **원클릭 배포** — 설치·색인·실행 스크립트 + Docker + systemd
@@ -59,7 +60,7 @@
 
 ![PB 매뉴얼 데스크](assets/console.png)
 
-*모호성 배너("근거가 여러 부문에 걸쳐 있어요") · 부문 레벨 근거 지도 · 컴포저의 범위 칩 — 전 부문 39,240청크 실화면*
+*모호성 배너("근거가 여러 부문에 걸쳐 있어요") · 부문 레벨 근거 지도 · 컴포저의 범위 칩 — 화면+업무 44,340청크 실화면*
 
 **🌐 직접 체험**: [pb-manual-desk-demo.vercel.app](https://pb-manual-desk-demo.vercel.app) — **합성 데모 데이터**(832청크)로 동작하는 PowerBASE 공개 데모. 스코프 칩·모호성 배너·근거 지도를 브라우저에서 바로 사용해 볼 수 있습니다(사내 원문 미포함).
 
@@ -69,7 +70,7 @@
 
 ## 🎬 실전 시나리오 (실측)
 
-실제 색인(전 부문 39,240청크)에 실제 질의를 넣어 받은 **무편집 결과**입니다.
+실제 색인(화면+업무 44,340청크)에 실제 질의를 넣어 받은 **무편집 결과**입니다.
 환경: CPU 전용(WSL2) · `ko-sroberta` 임베딩 · `bge-reranker-v2-m3` 게이트(τ 자동 보정) · 전 부문 색인 후 재검증(부문 정확도 97.9%·Recall@5 100%).
 
 | # | 시나리오 | 질문 | 결과 |
@@ -158,7 +159,7 @@
 | ⓪ 목차 | `crawl_toc.py` | TOC → `manifest.json` | RoboHelp TOC **재귀 파싱** — 화면 19부문·4,109토픽 + 업무 10부문(`--base PM` → `manifest_pm.json`), 브레드크럼 상위 계층의 단일 원천 |
 | ① 수집 | `crawl.py` | 토픽 → `data/html/` | 부문별 목록(`data/topics/`)으로 증분 수집 · `--base PM`은 `data/html_pm/` + 본문 이미지(`data/img_pm/`)까지 |
 | ② 파싱 | `parse.py` / `parse_pm.py` | HTML → 구조화 dict | CSS class 기반 **계층 복원** (품질의 핵심) — 화면/업무 템플릿이 달라 파서 분리 |
-| ②′ 도식 | `extract_pm_images.py` | 이미지 → `pm_image_text.json` | 업무매뉴얼의 흐름도·표 이미지를 **OCR(EasyOCR)+VLM(Ollama qwen2.5vl)** 로 텍스트화 — 전부 로컬, sha1 증분 캐시 |
+| ②′ 도식 | `extract_pm_images.py` | 이미지 → `pm_image_text.json` | 업무매뉴얼의 흐름도·표 이미지를 **OCR(EasyOCR, 로컬)+VLM**(Ollama qwen2.5vl 로컬 \| 개발기 전용 claude CLI)으로 텍스트화 — sha1 증분 캐시·샤드 병렬 |
 | ③ 엑셀 | `to_xlsx.py` | dict → `data/xlsx/` | 수작업 샘플과 동일 B/C 2열 포맷 |
 | ④ 청크 | `to_chunks.py` | dict → `chunks.jsonl` | 브레드크럼 1개 = 청크 1개, 경로 보존 · `manual`(화면/업무) 필드가 `sector_path` 루트 |
 | ⑤ 색인 | `build_index.py` | 청크 → `data/index/` | 로컬 임베딩(FAISS) + BM25 — 화면+업무 **통합 단일 인덱스** |

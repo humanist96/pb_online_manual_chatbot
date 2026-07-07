@@ -8,7 +8,7 @@
 </head>
 <body>
 <div id="progress"></div>
-<div id="pagenum">1 / 40</div>
+<div id="pagenum">1 / 43</div>
 <div id="help"><kbd>←</kbd><kbd>→</kbd> 이동 · <kbd>T</kbd> 목차</div>
 <nav id="toc" aria-label="목차"><h2>목차</h2><ol></ol></nav>
 
@@ -34,10 +34,10 @@
   <h1 class="head">오늘 여러분이 만들 것 — <em>근거를 대는</em> 매뉴얼 챗봇</h1>
   <div class="cols">
     <div>
-      <p class="lede">코스콤 원장시스템(PowerBASE) 매뉴얼 <b>전 부문(19부문)</b>에 자연어로 질문하면, <b>매뉴얼 원문 근거와 출처를 인용해</b> 답하는 챗봇입니다. 임베딩·검색·LLM 전부 로컬 — 폐쇄망에서 돌아갑니다.</p>
+      <p class="lede">코스콤 원장시스템(PowerBASE) 매뉴얼 <b>전 부문</b>에 자연어로 질문하면, <b>매뉴얼 원문 근거와 출처를 인용해</b> 답하는 챗봇입니다. <b>화면매뉴얼(19부문·4,108화면)</b>과 <b>업무매뉴얼(10부문·390문서)</b>을 하나의 인덱스로 통합했고, 임베딩·검색·LLM 전부 로컬 — 폐쇄망에서 돌아갑니다.</p>
       <div class="stats mt4" style="grid-template-columns:1fr 1fr">
-        <div class="stat"><div class="n">4,108</div><div class="t">화면 자동 색인</div><div class="s">19부문 · RoboHelp TOC 재귀</div></div>
-        <div class="stat"><div class="n">39,240</div><div class="t">검색 청크</div><div class="s">브레드크럼 1개 = 청크 1개</div></div>
+        <div class="stat"><div class="n">4,108</div><div class="t">화면매뉴얼 색인</div><div class="s">19부문 + 업무 390문서·10부문</div></div>
+        <div class="stat"><div class="n">44,340</div><div class="t">통합 검색 청크</div><div class="s">화면 39,240 + 업무 5,100</div></div>
         <div class="stat alt"><div class="n">[S1]</div><div class="t">출처 인용 강제</div><div class="s">근거 없으면 답하지 않음</div></div>
         <div class="stat ok"><div class="n">0</div><div class="t">외부 API 호출</div><div class="s">완전 로컬·오프라인</div></div>
       </div>
@@ -145,7 +145,7 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
   <div class="kicker">Part 1 — 큰 그림</div>
   <h1 class="head">RAG 파이프라인 — <em>다섯 단계</em>가 전부다</h1>
   <div class="pipe mt3">
-    <div class="pnode"><div class="pt">① 문서 수집</div><div class="ps">매뉴얼 HTML 4,108화면</div></div>
+    <div class="pnode"><div class="pt">① 문서 수집</div><div class="ps">화면 HTML 4,108 +<br/>업무 HTML 390문서</div></div>
     <div class="parrow">›</div>
     <div class="pnode hl"><div class="pt">② 청크 분할</div><div class="ps">검색 단위로 쪼개기<br/>(품질의 절반이 여기서)</div></div>
     <div class="parrow">›</div>
@@ -220,7 +220,7 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
 <section class="slide" data-title="bi-encoder vs cross-encoder">
   <div class="kicker">Part 1 — 두 인코더의 차이</div>
   <h1 class="head">사서와 심사위원 — <em>bi</em>-encoder vs <em>cross</em>-encoder</h1>
-  <p class="lede"><b>bi-encoder(임베딩)</b>는 서가를 미리 정리해 두고 후보를 빨리 뽑는 <b>사서</b>, <b>cross-encoder(리랭커)</b>는 뽑힌 후보를 질문과 함께 정독하고 점수를 매기는 <b>심사위원</b> — 그래서 <b>넓게는 bi(39,240청크 → 후보 32개), 좁게는 cross(32개만 정독)</b>로 분업합니다.</p>
+  <p class="lede"><b>bi-encoder(임베딩)</b>는 서가를 미리 정리해 두고 후보를 빨리 뽑는 <b>사서</b>, <b>cross-encoder(리랭커)</b>는 뽑힌 후보를 질문과 함께 정독하고 점수를 매기는 <b>심사위원</b> — 그래서 <b>넓게는 bi(44,340청크 → 후보 32개), 좁게는 cross(32개만 정독)</b>로 분업합니다.</p>
   <div class="cols mt3">
     <div>
       <div class="pipe">
@@ -248,7 +248,7 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
     <tr><td><b>입력</b></td><td>질문·문서를 <b>따로</b> 인코딩</td><td>질문+문서 <b>쌍을 한 번에</b> 인코딩</td></tr>
     <tr><td><b>출력</b></td><td>임베딩 벡터 — 색인해 두면 <b>재사용</b></td><td>그 쌍의 점수 하나 — 재사용 불가</td></tr>
     <tr><td><b>사전 계산</b></td><td>문서 벡터를 미리 색인, 질의 때 질문만 1회 인코딩</td><td>불가 — 질의마다 모든 쌍을 새로 계산</td></tr>
-    <tr><td><b>속도</b></td><td>39,240청크 전수 비교도 수십 ms</td><td>쌍당 수백 ms(CPU) — 후보 32개에 수 초</td></tr>
+    <tr><td><b>속도</b></td><td>44,340청크 전수 비교도 수십 ms</td><td>쌍당 수백 ms(CPU) — 후보 32개에 수 초</td></tr>
     <tr><td><b>정확도</b></td><td>근사 — 단어 간 상호작용이 벡터로 뭉개짐</td><td>높음 — 질문↔문서 토큰이 직접 상호작용</td></tr>
     <tr><td><b>역할</b></td><td>넓게 건져오기 (recall)</td><td>정밀하게 판정하기 (precision)</td></tr>
   </table>
@@ -272,7 +272,7 @@ claude --version         <span class="c"># Claude Code CLI</span></pre></div>
     </div>
     <div>
       <p class="body"><b>관련도 게이트</b> — 리랭커 점수가 임계치 τ 미만이면 LLM을 아예 호출하지 않고 "매뉴얼에서 확인되지 않았어요"로 답합니다. 지어낸 답을 <b>구조적으로 차단</b>하는 장치입니다.</p>
-      <div class="code out mt3"><div class="code-h"><span>우리 실측 (전 부문 39,240청크 · τ 자동 보정)</span></div><pre>τ = 0.5507  <span class="c"># 도메인 내/외 질의 분포로 보정</span>
+      <div class="code out mt3"><div class="code-h"><span>우리 실측 (통합 44,340청크 · τ 자동 보정)</span></div><pre>τ = 0.5641  <span class="c"># 도메인 내/외 질의 분포로 보정</span>
 도메인 내 질의 통과   84%
 무관 질의 거부       87%   <span class="c"># "점심 뭐 먹지" → 차단</span></pre></div>
     </div>
@@ -763,7 +763,7 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
     <div class="check"><span>웹 UI <b>/api/meta</b>에 청크 수·모델명 표시</span></div>
     <div class="check"><span>(방식 A/B 중 택1) 서비스로 상시 실행 + 헬스체크 200</span></div>
   </div>
-  <div class="band mt4"><span class="bt">막혔다면</span><span class="bd">그 상태 그대로 Claude Code에게 — <b>"○○ 단계에서 이런 출력이 나왔어. 원인 파악하고 해결해줘"</b> + 에러 원문 붙여넣기. 트러블슈팅 FAQ는 38쪽.</span></div>
+  <div class="band mt4"><span class="bt">막혔다면</span><span class="bd">그 상태 그대로 Claude Code에게 — <b>"○○ 단계에서 이런 출력이 나왔어. 원인 파악하고 해결해줘"</b> + 에러 원문 붙여넣기. 트러블슈팅 FAQ는 41쪽.</span></div>
   <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
 </section>
 
@@ -805,9 +805,9 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
     <div>
       <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 (실제 사용 원문)</span></div><pre>리랭커 모델 다운로드해서 정밀 게이트로 켜줘</pre><div class="p-why"><b>왜:</b> 목표 상태(정밀 게이트 on)만 말해도, 모델 캐시→τ 보정→서버 반영→검증까지 Claude가 절차를 채운다.</div></div>
       <div class="code mt3"><div class="code-h"><span>ⓐ 셸 — τ 자동 보정</span></div><pre>.venv/bin/python src/calibrate_threshold.py --write</pre></div>
-      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (전 부문 실측)</span></div><pre><span class="o">양성(도메인 내) min=0.501 중앙=0.714
+      <div class="code out mt2"><div class="code-h"><span>ⓒ 기대 출력 (통합 코퍼스 재보정)</span></div><pre><span class="o">양성(도메인 내) min=0.501 중앙=0.714
 음성(무관)     min=0.500 max=0.618
-선택 τ = 0.5507 → 통과 84% · 거부 87%</span></pre></div>
+선택 τ = 0.5641 → 통과 84% · 거부 87%</span></pre></div>
     </div>
     <div>
       <p class="body"><b>원리</b> — 도메인 내 질의(매뉴얼 Q&amp;A·용어)와 무관 질의("점심 뭐 먹지")의 <b>신뢰도 분포를 겹쳐 보고</b>, 무관 질의를 목표 비율 이상 거부하는 최소 τ를 고릅니다. 결과는 meta.json에 기록되어 서버가 그대로 사용합니다.</p>
@@ -825,7 +825,7 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
     <tr><td><b>항목 위치</b></td><td>"변경사용자 항목은 어디서 확인하나요?"</td><td>화면·항목 특정 + 인용 — 신뢰도 0.73으로 통과</td></tr>
     <tr><td><b>업무 절차</b></td><td>"고객신분 이상 등록 내역의 해지는 어느 화면에서?"</td><td>처리 화면[2473]과 조회 전용[2474]를 구분해 답변</td></tr>
     <tr><td><b>원인 설명</b></td><td>"2007년 이전 계좌는 개설자ID가 왜 안 나오나?"</td><td>매뉴얼 Q&amp;A 근거로 원인(PB 도입일) 설명</td></tr>
-    <tr><td><b>무관 차단</b></td><td>"오늘 점심 뭐 먹지"</td><td>best 0.50 &lt; τ 0.506 → <b>LLM 미호출</b>, 확인 불가 답변</td></tr>
+    <tr><td><b>무관 차단</b></td><td>"오늘 점심 뭐 먹지"</td><td>best 0.50 &lt; τ 0.5641 → <b>LLM 미호출</b>, 확인 불가 답변</td></tr>
   </table>
   <p class="body mt3">확장하려면 — 시나리오 세트를 늘려 <b>Recall@k·MRR</b>을 자동 채점하는 평가 스크립트를 만들 차례입니다. 이것도 좋은 Claude Code 실습 과제: <i>"data/chunks.jsonl의 qa 청크에서 (질문, 정답 화면) 쌍 100개를 뽑아 Recall@5를 재는 스크립트를 만들어줘"</i>.</p>
   <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
@@ -842,8 +842,8 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
         <div class="check"><span><b>모호성 배너</b> — 근거가 여러 부문에 걸치면 시스템이 먼저 묻고, 칩 클릭 한 번으로 범위 확정·재검색</span></div>
         <div class="check"><span><b>근거 지도 좁히기</b> — 지도 노드 hover → 그 경로로 즉시 재검색. 지도가 곧 필터</span></div>
       </div>
-      <div class="code out mt3"><div class="code-h"><span>실측 (전 부문 39,240청크)</span></div><pre>부문 정확도(top1)  97.9%  ·  Recall@5  100%  (94문항)
-동음이의 20문항 중 75%에서 모호성 감지 → 배너 노출</pre></div>
+      <div class="code out mt3"><div class="code-h"><span>실측 (통합 44,340청크)</span></div><pre>부문 정확도(top1)  94.7%  ·  Recall@5  100%  (94문항)
+동음이의 모호성 감지 90% → 배너  ·  scope=업무 화면 근거 누수 0건</pre></div>
     </div>
     <div>
       <div class="prompt"><div class="p-h"><span class="p-tag">ⓑ 실전 프롬프트 — 이 기능을 만든 요청 (원문 요지)</span></div><pre>계좌에서 전 부문으로 확장하자. 브레드크럼을
@@ -852,7 +852,46 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
 타 분야 검색결과와 겹치지 않도록 사용자가
 피드백을 받는 것이 핵심 가치다.
 이를 위한 계획을 작성해줘.</pre><div class="p-why"><b>왜:</b> 기능 나열이 아니라 <b>핵심 가치(겹치지 않음+사용자 피드백)</b>를 선언 — 설계 전체가 그 가치를 중심으로 정렬된다.</div></div>
-      <div class="band mt3"><span class="bt">게이트 재보정</span><span class="bd">코퍼스가 9배 커지면 신뢰도 분포가 이동합니다 — τ를 <b>반드시 재보정</b>하세요(1차 0.607은 과엄격 → 목표 조정으로 0.551 채택).</span></div>
+      <div class="band mt3"><span class="bt">게이트 재보정</span><span class="bd">코퍼스가 커지거나 매뉴얼을 통합하면 신뢰도 분포가 이동합니다 — τ를 <b>반드시 재보정</b>하세요(계좌 0.607 → 전 부문 0.5507 → 화면·업무 통합 0.5641).</span></div>
+    </div>
+  </div>
+  <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="업무매뉴얼 확장 — 이원 매뉴얼과 도식 텍스트화">
+  <div class="kicker">Part 4 — 이원 매뉴얼 확장</div>
+  <h1 class="head">업무매뉴얼 확장 — <em>이원 체계</em>와 <em>도식 텍스트화</em></h1>
+  <p class="lede">화면매뉴얼(4,108화면)에 더해 <b>업무매뉴얼(390문서·10부문: 계좌관리·출납관리·금융상품…)</b>을 같은 인덱스에 색인했습니다. 브레드크럼 <b>최상위에 "매뉴얼 레벨"</b>을 두어 화면과 업무를 분리 — 범위 셀렉터 1열에서 <b>화면/업무</b>를 먼저 고르고, scope=업무 검색에 화면 근거 누수 <b>0건</b>.</p>
+  <div class="crumbs mt3">
+    <span class="crumb">화면</span><span class="csep">›</span>
+    <span class="crumb">계좌</span><span class="csep">›</span>
+    <span class="crumb last">지점계좌서비스약정등록내역</span>
+  </div>
+  <div class="crumbs mt2">
+    <span class="crumb">업무</span><span class="csep">›</span>
+    <span class="crumb">계좌관리</span><span class="csep">›</span>
+    <span class="crumb last">계좌개설절차 (ACP02010)</span>
+  </div>
+  <div class="cols mt4">
+    <div>
+      <p class="body"><b>왜 도식 텍스트화인가</b> — 업무매뉴얼은 본문이 <b>흐름도·표 GIF 이미지</b>인 문서가 많습니다(총 483장). 예: 계좌개설절차는 본문 93자 + 이미지 2장 — 이미지를 못 읽으면 검색·답변이 불가능합니다.</p>
+      <div class="pipe mt3">
+        <div class="pnode"><div class="pt">① EasyOCR (ko/en)</div><div class="ps">이미지 전량 텍스트<br/>추출 (로컬)</div></div>
+        <div class="parrow">›</div>
+        <div class="pnode hl"><div class="pt">② VLM 재구성</div><div class="ps">OCR 텍스트를 프롬프트에<br/>주입(환각 억제) → 흐름도<br/>순서·분기를 단계 서술로</div></div>
+      </div>
+      <div class="band mt3"><span class="bt">로컬</span><span class="bd">VLM 백엔드는 로컬 <b>ollama(qwen2.5vl)</b> 또는 개발기 전용 claude CLI 비전. <b>sha1 캐시</b>로 증분 안전 — 바뀐 이미지만 재처리합니다.</span></div>
+    </div>
+    <div>
+      <p class="body"><b>성과</b> — "계좌개설 절차 알려줘" 질의에 흐름도 도식 청크가 <b>2위(신뢰도 0.65 &gt; τ)</b>로 올라와, 단계와 TR코드까지 답합니다.</p>
+      <div class="code out mt2"><div class="code-h"><span>실측 — 도식 청크 답변</span></div><pre><span class="o">1. 고객방문 → 2. 신규고객여부 판단(TR-2100)
+   → 분기 …</span></pre></div>
+      <div class="code out mt2"><div class="code-h"><span>파이프라인 확장 (통합 단일 인덱스)</span></div><pre>crawl_toc.py / crawl.py <span class="c">--base PM</span>
+src/parse_pm.py          <span class="c"># PM 템플릿 전용 파서</span>
+src/extract_pm_images.py <span class="c"># EasyOCR + VLM</span>
+to_chunks.py             <span class="c"># 입력 디렉터리로 화면/업무 판별</span>
+<span class="c"># 골든: test_parse.py 8종 + test_parse_pm.py 3종 통과</span></pre></div>
+      <div class="band mt2"><span class="bt">모호성</span><span class="bd">"계좌 개설"처럼 양쪽에 걸리는 질문은 배너가 <b>"화면 기준? 업무 기준?"</b>을 먼저 묻습니다.</span></div>
     </div>
   </div>
   <div class="foot"><span>KOSCOM RAG 실습 과정 — 사내 한정</span><span class="pg"></span></div>
@@ -863,7 +902,7 @@ cd deploy/online &amp;&amp; vercel deploy --prod</pre></div>
   <h1 class="head">여러분의 부문으로 — <em>확장 로드맵</em></h1>
   <div class="steps mt2">
     <span class="step on">계좌 파일럿</span><span class="sarrow">›</span>
-    <span class="step on">전 부문 (완료 — 19부문·39,240청크)</span><span class="sarrow">›</span>
+    <span class="step on">전 부문 + 업무매뉴얼 (완료 — 화면 19부문·업무 10부문·44,340청크)</span><span class="sarrow">›</span>
     <span class="step">타 시스템 매뉴얼</span>
   </div>
   <div class="cols mt4">
