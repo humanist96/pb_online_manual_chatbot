@@ -1,0 +1,10 @@
+# 자격증명·로컬 상태·원본 데이터 — 배포 번들 제외
+.env.local
+.ingest_state
+demo_data/
+gen_demo_data.py
+ingest.py
+ingest_real.py
+resume_ingest.sh
+README.md
+__pycache__/

@@ -97,6 +97,7 @@ def main():
         batch = [{"id": c["id"], "data": c["embed_text"],
                   "metadata": {"screen_id": c["screen_id"], "screen_no": c["screen_no"],
                                "title": c["title"], "source_url": c["source_url"],
+                               "manual": c.get("manual", ""),
                                "sector": c.get("sector", ""),
                                "sector_path": c.get("sector_path", []),
                                "scope_key": ">".join((c.get("sector_path") or []) + [c["screen_id"]]),

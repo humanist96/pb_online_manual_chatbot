@@ -111,15 +111,28 @@ def search(q: str, topk: int, scope: list[str] | None, types: set[str] | None,
 
 
 def scope_hint(hits: list[dict]) -> dict:
-    by: dict[str, dict] = {}
+    """근거 분포 — 2단계 모호성: ① 매뉴얼(화면/업무) ② 부문 (webapp과 동일 로직)."""
+    secs: dict[str, dict] = {}
+    mans: dict[str, dict] = {}
     for h in hits:
+        sp = h.get("sector_path") or []
+        man = h.get("manual") or (sp[0] if sp and sp[0] in ("화면", "업무") else "")
         s = h.get("sector") or "미분류"
-        d = by.setdefault(s, {"sector": s, "count": 0, "best": 0.0})
+        d = secs.setdefault(s, {"sector": s, "count": 0, "best": 0.0,
+                                "scope": sp[:2] if len(sp) >= 2 else [s]})
         d["count"] += 1
         d["best"] = max(d["best"], h["confidence"])
-    secs = sorted(by.values(), key=lambda x: -x["best"])
-    return {"ambiguous": len(secs) >= 2 and (secs[0]["best"] - secs[1]["best"]) < 0.08,
-            "sectors": secs}
+        if man:
+            m = mans.setdefault(man, {"manual": man, "count": 0, "best": 0.0,
+                                      "scope": [man]})
+            m["count"] += 1
+            m["best"] = max(m["best"], h["confidence"])
+    sec_l = sorted(secs.values(), key=lambda x: -x["best"])
+    man_l = sorted(mans.values(), key=lambda x: -x["best"])
+    return {"ambiguous": len(sec_l) >= 2 and (sec_l[0]["best"] - sec_l[1]["best"]) < 0.08,
+            "sectors": sec_l,
+            "ambiguous_manual": len(man_l) >= 2 and (man_l[0]["best"] - man_l[1]["best"]) < 0.10,
+            "manuals": man_l}
 
 
 def _daily_count() -> int | None:
