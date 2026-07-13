@@ -4,17 +4,15 @@
   패스1 OCR  : EasyOCR(ko/en) — 노드 라벨·TR코드 고정밀 추출 (전량, 로컬)
   패스2 VLM  : 흐름도·표의 구조(순서·분기)를 단계 서술로.
                OCR 텍스트를 프롬프트에 주입해 코드·명칭 환각 억제.
-               백엔드 2종 — ollama(qwen2.5-vl, 로컬) | claude(개발기 전용 claude CLI).
+               VLM 서빙은 승인된 Terra 모델에 한해서만 허용한다. 현재는 모델 ID·서빙·라이선스·해시 미확정으로 비활성 상태다.
 
-⚠️ claude 백엔드는 CLAUDE.md 예외(개발기 한정 claude CLI, 폐쇄망 자동 비활성)의
-   연장이다 — 사내 이미지가 외부로 전송되므로 개발기에서 명시 실행할 때만 쓴다.
+
 
 캐시: data/pm_image_text.json {이름: {sha1, ocr, text, kind, vlm}} — 증분 안전.
 우선순위: 본문 빈약 문서(파서 브레드크럼 0 또는 <5)의 이미지부터 VLM.
 
   python src/extract_pm_images.py --ocr                     # 패스1 전량 (수 초/장)
-  python src/extract_pm_images.py --vlm                     # 패스2 우선순위 대상만 (ollama)
-  python src/extract_pm_images.py --vlm --backend claude    # 패스2 claude CLI (개발기)
+  python src/extract_pm_images.py --vlm --backend terra    # 승인 전에는 fail-closed
   python src/extract_pm_images.py --vlm --all --limit 20    # 전량 모드 + 상한
   python src/extract_pm_images.py --vlm --shard 0/3         # 병렬 샤딩(이름 정렬 기준)
 """
@@ -31,8 +29,8 @@ import urllib.request
 IMG_DIR = pathlib.Path("data/img_pm")
 HTML_DIR = pathlib.Path("data/html_pm")
 CACHE = pathlib.Path("data/pm_image_text.json")
-OLLAMA = "http://localhost:11434"
-VLM_MODEL = "qwen2.5vl:7b"
+VLM_APPROVAL_ENV = "PB_VLM_APPROVAL"
+VLM_APPROVAL = "I_ACKNOWLEDGE_APPROVED_TERRA_VLM"
 
 VLM_PROMPT = """이 이미지는 증권 원장시스템 업무매뉴얼의 도식(흐름도/표/구성도)입니다.
 이미지에서 OCR로 추출된 텍스트는 다음과 같습니다:
@@ -117,41 +115,18 @@ def run_ocr():
     print(f"[ocr] 완료 — 신규 {done}장, 캐시 {len(cache)}건")
 
 
-def _vlm_ollama(p: pathlib.Path, ocr: str) -> str:
-    b64 = base64.b64encode(img_png_bytes(p)).decode()
-    body = {"model": VLM_MODEL, "stream": False,
-            "prompt": VLM_PROMPT.format(ocr=ocr or "(추출 실패)"),
-            "images": [b64], "options": {"temperature": 0.1, "num_predict": 700}}
-    req = urllib.request.Request(f"{OLLAMA}/api/generate",
-                                 data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=900) as r:
-        return json.loads(r.read()).get("response", "").strip()
-
-
-def _vlm_claude(p: pathlib.Path, ocr: str) -> str:
-    """개발기 전용 — 헤드리스 claude CLI가 Read 도구로 이미지를 직접 본다.
-    GIF 호환을 위해 PNG 사본을 만들어 전달. 실패 시 빈 문자열."""
-    import tempfile
-    import subprocess
-    claude_bin = os.environ.get("CLAUDE_BIN", "claude")
-    model = os.environ.get("CLAUDE_MODEL", "sonnet")   # 전사 작업 — 경량 모델 기본
-    with tempfile.TemporaryDirectory(prefix="pmvlm_") as td:
-        png = pathlib.Path(td) / (p.stem + ".png")
-        png.write_bytes(img_png_bytes(p))
-        prompt = (f"Read 도구로 이미지 {png} 를 열어 확인한 뒤 다음 작업을 수행하라.\n\n"
-                  + VLM_PROMPT.format(ocr=ocr or "(추출 실패)"))
-        cmd = [claude_bin, "-p", "--allowedTools", "Read", "--max-turns", "4"]
-        if model:
-            cmd += ["--model", model]
-        r = subprocess.run(cmd, input=prompt, capture_output=True,
-                           text=True, timeout=300)
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr or r.stdout or "")[:200])
-    return r.stdout.strip()
+def require_vlm_approval(backend: str) -> None:
+    if os.environ.get(VLM_APPROVAL_ENV) != VLM_APPROVAL:
+        raise SystemExit(
+            f"VLM 비활성: {VLM_APPROVAL_ENV}={VLM_APPROVAL} 승인 후에만 실행할 수 있습니다.")
+    if backend != "terra":
+        raise SystemExit("VLM backend는 승인된 terra만 허용합니다.")
+    raise SystemExit("승인된 Terra VLM adapter가 아직 설치되지 않아 실행하지 않습니다.")
 
 
 def run_vlm(limit: int | None, all_imgs: bool, backend: str, shard: str | None):
+    require_vlm_approval(backend)
+    return  # Terra adapter가 승인·설치되기 전에는 어떤 VLM도 호출하지 않음
     cache = load_cache()
     targets = sorted(IMG_DIR.iterdir())
     if not all_imgs:
@@ -163,7 +138,6 @@ def run_vlm(limit: int | None, all_imgs: bool, backend: str, shard: str | None):
     todo = [p for p in targets if not cache.get(p.name, {}).get("vlm")]
     if limit:
         todo = todo[:limit]
-    call = _vlm_claude if backend == "claude" else _vlm_ollama
     print(f"[vlm:{backend}] 대상 {len(todo)}장 (우선순위 모드={not all_imgs}, shard={shard})")
     for i, p in enumerate(todo, 1):
         ocr = " · ".join(cache.get(p.name, {}).get("ocr") or [])[:1500]

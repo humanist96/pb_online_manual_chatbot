@@ -20,10 +20,11 @@ from __future__ import annotations
 import os
 import json
 import time
-import shutil
 import pickle
 import pathlib
-import subprocess
+import datetime
+import threading
+import ipaddress
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -32,25 +33,71 @@ import faiss
 
 from rag_common import (embed, tokenize_ko, INDEX_DIR,
                         rerank_scores, get_reranker, load_gate, RERANK_MODEL)
+from request_validation import MAX_REQUEST_TARGET_CHARS, parse_query_params
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
-HOST = os.environ.get("HOST", "0.0.0.0")
+QUESTIONS_PATH = ROOT / "data" / "questions.json"     # gen_questions.py --out 산출(질문뱅크)
+CHIP_LOG_PATH = ROOT / "data" / "chip_log.jsonl"      # 추천 말풍선(src=chip) 클릭 계측
+HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8000"))
+NON_LOOPBACK_BIND_ENV = "PB_ALLOW_NON_LOOPBACK_BIND"
+NON_LOOPBACK_BIND_CONFIRMATION = "I_ACKNOWLEDGE_REVERSE_PROXY_AUTH"
 
-# 답변 LLM 백엔드: claude(로컬 Claude Code CLI) | ollama | none(추출-합성)
-# 자동 선택: claude CLI가 있으면 claude, 아니면 ollama, 둘 다 없으면 추출-합성.
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "auto")
+
+def _is_loopback_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+if (not _is_loopback_host(HOST)
+        and os.environ.get(NON_LOOPBACK_BIND_ENV) != NON_LOOPBACK_BIND_CONFIRMATION):
+    raise SystemExit(
+        f"non-loopback HOST={HOST!r} requires an authenticated reverse proxy and "
+        f"{NON_LOOPBACK_BIND_ENV}={NON_LOOPBACK_BIND_CONFIRMATION}")
+
+try:
+    MAX_CONCURRENT_QUERIES = int(os.environ.get("PB_MAX_CONCURRENT_QUERIES", "2"))
+except ValueError:
+    raise SystemExit("PB_MAX_CONCURRENT_QUERIES must be an integer") from None
+if not 1 <= MAX_CONCURRENT_QUERIES <= 16:
+    raise SystemExit("PB_MAX_CONCURRENT_QUERIES must be between 1 and 16")
+_query_slots = threading.BoundedSemaphore(MAX_CONCURRENT_QUERIES)
+
+# 답변 LLM 백엔드: none(기본, 추출-합성) | ollama(명시적 opt-in).
+LLM_BACKENDS = ("none", "ollama")
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "none").strip().lower()
+if LLM_BACKEND not in LLM_BACKENDS:
+    raise SystemExit(f"LLM_BACKEND must be one of: {', '.join(LLM_BACKENDS)}")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b-instruct")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")  # 빠른 응답용
+
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; base-uri 'none'; object-src 'none'; "
+        "frame-ancestors 'none'; form-action 'self'; script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; font-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+}
 
 SYSTEM_PROMPT = (
     "당신은 코스콤 원장시스템(PowerBASE) 온라인 매뉴얼 도우미다. "
     "아래 [근거]에 있는 내용만 사용해 한국어로 간결하고 정확하게 답한다. "
     "근거에 없으면 '매뉴얼에서 확인되지 않습니다.'라고 답하고 추측하지 않는다. "
-    "핵심을 먼저 말하고, 사용한 근거마다 문장 끝에 [S1],[S2] 형태의 출처 마커를 붙인다."
+    "핵심을 먼저 말하고, 사용한 근거마다 문장 끝에 [S1],[S2] 형태의 출처 마커를 붙인다. "
+    "화면번호를 물으면 근거 머리의 '화면번호 NNNN' 표기로만 답한다 — "
+    "FA002600·AC110100 같은 영문+숫자 조합은 내부 문서코드이므로 화면번호로 제시하지 않는다."
 )
 
 # ── 인덱스 1회 로딩 ──
@@ -100,6 +147,146 @@ def _sample_questions(chunks: list[dict], limit: int = 8) -> list[str]:
 _samples = _sample_questions(_chunks)
 
 
+# ─────────────────── 질문뱅크(추천/관련 질문) — 온라인 데모 이식 ───────────────────
+# gen_questions.py --out data/questions.json 산출물. 각 엔트리 {q,sid,t,sp,m}.
+# 자기-검색 검증을 통과한 질문만 담기므로 추천 시 게이트 적중률이 구조적으로 높다.
+# 없으면 빈 리스트로 안전 동작(기존 _sample_questions 폴백 유지).
+def _load_question_bank(path: pathlib.Path) -> list[dict]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except FileNotFoundError:
+        print(f"[webapp] 질문뱅크 없음({path.name}) — 추천은 기본 샘플로 폴백", flush=True)
+    except Exception as e:
+        print(f"[webapp] 질문뱅크 로드 실패: {e} — 기본 샘플로 폴백", flush=True)
+    return []
+
+
+QUESTIONS = _load_question_bank(QUESTIONS_PATH)
+
+
+def _q_sector(e: dict) -> str:
+    """엔트리의 부문(그룹) 키 — sector_path[1](매뉴얼 다음) 또는 루트."""
+    sp = e.get("sp") or []
+    return sp[1] if len(sp) >= 2 else (sp[0] if sp else "")
+
+
+# 사전 인덱스(모듈 로드 1회) — 요청당 O(1) 근처 조회
+_BANK_BY_SID: dict[str, list] = {}
+_BANK_BY_SECTOR: dict[str, list] = {}
+for _e in QUESTIONS:
+    _BANK_BY_SID.setdefault(_e.get("sid", ""), []).append(_e)
+    _BANK_BY_SECTOR.setdefault(_q_sector(_e), []).append(_e)
+
+
+def _norm_q(s: str) -> str:
+    return "".join((s or "").split())
+
+
+def _bank_scope_match(entry: dict, scope: list[str]) -> bool:
+    """scope 세그먼트 전부가 질문 경로(sp + [sid])의 접두와 일치해야 함."""
+    path = list(entry.get("sp") or []) + [entry.get("sid", "")]
+    if len(scope) > len(path):
+        return False
+    return all(path[i] == s for i, s in enumerate(scope))
+
+
+def suggest_pick(scope: list[str] | None, n: int, seed: int) -> tuple[list[dict], int]:
+    """접두 필터 → 부문 그룹핑 → seed 회전 라운드로빈으로 n개 선발(결정적).
+    같은 (scope, n, seed)는 항상 같은 결과 — 캐시 친화. 반환: (선발, 풀 크기)."""
+    pool = [e for e in QUESTIONS if not scope or _bank_scope_match(e, scope)]
+    groups: dict[str, list] = {}
+    for e in pool:
+        groups.setdefault(_q_sector(e), []).append(e)
+    keys = sorted(groups)
+    if not keys:
+        return [], 0
+    keys = keys[seed % len(keys):] + keys[:seed % len(keys)]  # 그룹 순서 회전
+    idx = {k: seed % len(groups[k]) for k in keys}            # 그룹 내 시작점 회전
+    taken = {k: 0 for k in keys}
+    out: list[dict] = []
+    while len(out) < n:
+        progressed = False
+        for k in keys:
+            if len(out) >= n:
+                break
+            g = groups[k]
+            if taken[k] >= len(g):
+                continue
+            e = g[(idx[k] + taken[k]) % len(g)]
+            taken[k] += 1
+            out.append({"q": e["q"], "sid": e.get("sid", ""), "t": e.get("t", "")})
+            progressed = True
+        if not progressed:
+            break
+    return out, len(pool)
+
+
+def related_questions(q: str, hits: list[dict]) -> list[dict]:
+    """이번 답변의 근거(hit)에서 이어질 질문을 뱅크에서 최대 3개.
+    ① hit 화면과 동일 screen_id → ② 동일 부문 → ③ 동일 매뉴얼 순.
+    현재 질문과 동일/포함 관계 및 상호 중복은 제외(막다른 골목 방지로 게이트 턴도 제공)."""
+    if not QUESTIONS or not hits:
+        return []
+    cur = _norm_q(q)
+    sids = [h.get("screen_id") for h in hits if h.get("screen_id")]
+    top = hits[0]
+    sp = top.get("sector_path") or []
+    sector = top.get("sector") or (sp[1] if len(sp) >= 2 else "")
+    manual = top.get("manual") or (sp[0] if sp else "")
+
+    out: list[dict] = []
+    seen_q: set[str] = set()
+
+    def add(entries: list) -> bool:
+        for e in entries:
+            eq = _norm_q(e.get("q", ""))
+            if not eq or eq in seen_q:
+                continue
+            if eq == cur or eq in cur or cur in eq:   # 현재 질문과 동일/포함 관계 제외
+                continue
+            seen_q.add(eq)
+            out.append({"q": e["q"], "sid": e.get("sid", ""), "t": e.get("t", "")})
+            if len(out) >= 3:
+                return True
+        return False
+
+    for sid in sids:                                  # ① 동일 화면(hit 순서 유지)
+        if add(_BANK_BY_SID.get(sid, [])):
+            return out
+    if sector and add(_BANK_BY_SECTOR.get(sector, [])):  # ② 동일 부문
+        return out
+    if manual:                                        # ③ 동일 매뉴얼
+        add([e for e in QUESTIONS if (e.get("sp") or [None])[0] == manual])
+    return out
+
+
+_chip_lock = threading.Lock()
+
+
+def track_chip(q: str, gate_ok: bool) -> None:
+    """추천 말풍선(src=chip) 클릭 계측 — data/chip_log.jsonl 1줄 append.
+    Redis 없는 폐쇄망이므로 파일 로그로 대체. 적중률 = gate_ok 비율.
+    실패는 조용히 무시(응답 지연·오류 없음)."""
+    try:
+        rec = {"ts": datetime.datetime.now().isoformat(timespec="seconds"),
+               "q": q, "gate_ok": bool(gate_ok)}
+        line = json.dumps(rec, ensure_ascii=False) + "\n"
+        with _chip_lock:
+            with open(CHIP_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(line)
+    except Exception:
+        pass
+
+
+# 첫 화면 추천: 질문뱅크가 있으면 seed 0 라운드로빈 8개(부문 다양성), 없으면 기존 샘플.
+if QUESTIONS:
+    _bank_samples, _ = suggest_pick(None, 8, 0)
+    _samples = [e["q"] for e in _bank_samples] or _samples
+print(f"[webapp] 질문뱅크 {len(QUESTIONS)}건 로드", flush=True)
+
+
 def _build_sector_tree(chunks: list[dict]) -> list[dict]:
     """스코프 셀렉터용 TOC 트리 — sector_path 체인 + 말단 화면 목록(청크 수 포함)."""
     root: dict[str, dict] = {}
@@ -113,7 +300,8 @@ def _build_sector_tree(chunks: list[dict]) -> list[dict]:
             node["count"] += 1
             children = node["children"]
         scr = node["screens"].setdefault(
-            c["screen_id"], {"id": c["screen_id"], "title": c["title"], "count": 0})
+            c["screen_id"], {"id": c["screen_id"], "title": c["title"],
+                             "no": c.get("screen_no", ""), "count": 0})
         scr["count"] += 1
 
     def ser(d: dict) -> list[dict]:
@@ -260,25 +448,6 @@ def _ollama_up() -> bool:
         return False
 
 
-def _claude_up() -> bool:
-    return shutil.which(CLAUDE_BIN) is not None
-
-
-def call_claude(prompt: str) -> str | None:
-    """로컬 Claude Code CLI 를 헤드리스(-p)로 호출해 답변 생성."""
-    try:
-        cmd = [CLAUDE_BIN, "-p"]
-        if CLAUDE_MODEL:
-            cmd += ["--model", CLAUDE_MODEL]
-        r = subprocess.run(cmd, input=prompt, capture_output=True,
-                           text=True, timeout=120, cwd=str(ROOT))
-        if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip()
-    except Exception:
-        return None
-    return None
-
-
 def call_ollama(prompt: str) -> str | None:
     try:
         import urllib.request
@@ -295,7 +464,9 @@ def call_ollama(prompt: str) -> str | None:
 
 def build_prompt(query: str, hits: list[dict]) -> str:
     ctx = "\n\n".join(
-        f"[S{h['rank']}] ({h['title']}[{h['screen_no']}] · {h['path_str']})\n{h['text']}"
+        f"[S{h['rank']}] ({h['title']}"
+        + (f" · 화면번호 {h['screen_no']}" if h.get("screen_no") else "")
+        + f" · {h['path_str']})\n{h['text']}"
         for h in hits
     )
     return f"{SYSTEM_PROMPT}\n\n[근거]\n{ctx}\n\n[질문] {query}\n\n[답변]"
@@ -329,28 +500,12 @@ def extractive_answer(query: str, hits: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
-def _resolve_backend() -> str:
-    if LLM_BACKEND != "auto":
-        return LLM_BACKEND
-    if _claude_up():
-        return "claude"
-    if _ollama_up():
-        return "ollama"
-    return "none"
-
-
 def answer(query: str, hits: list[dict]) -> dict:
     if not hits:
         return {"answer": "매뉴얼에서 확인되지 않습니다.", "used_llm": False, "backend": "none"}
-    be = _resolve_backend()
     text, used_llm, backend = None, False, "extractive"
-    prompt = build_prompt(query, hits)
-    if be == "claude" and _claude_up():
-        text = call_claude(prompt)
-        if text:
-            used_llm, backend = True, f"claude-cli:{CLAUDE_MODEL}"
-    elif be == "ollama" and _ollama_up():
-        text = call_ollama(prompt)
+    if LLM_BACKEND == "ollama" and _ollama_up():
+        text = call_ollama(build_prompt(query, hits))
         if text:
             used_llm, backend = True, f"ollama:{LLM_MODEL}"
     if not text:
@@ -359,11 +514,17 @@ def answer(query: str, hits: list[dict]) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, code, body: bytes, ctype="application/json; charset=utf-8"):
+    def end_headers(self):
+        for name, value in SECURITY_HEADERS.items():
+            self.send_header(name, value)
+        super().end_headers()
+
+    def _send(self, code, body: bytes, ctype="application/json; charset=utf-8",
+              cache="no-store"):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.end_headers()
         self.wfile.write(body)
 
@@ -374,6 +535,8 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
+        if len(self.path) > MAX_REQUEST_TARGET_CHARS:
+            return self._json({"error": "request target too long"}, 414)
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         if path in ("/", "/index.html"):
@@ -387,16 +550,25 @@ class Handler(BaseHTTPRequestHandler):
                 body = f.read_bytes()
             except (ValueError, OSError):
                 return self._send(404, b"not found", "text/plain; charset=utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", _STATIC_TYPES[ext])
-            self.send_header("Content-Length", str(len(body)))
             # css/js는 배포 즉시 반영되도록 no-cache, 폰트·이미지만 캐시 허용
             cache = "no-cache" if ext in (".css", ".js") else "public, max-age=86400"
-            self.send_header("Cache-Control", cache)
-            self.end_headers()
-            return self.wfile.write(body)
+            return self._send(200, body, _STATIC_TYPES[ext], cache)
         if path == "/api/sectors":
             return self._json({"tree": _sector_tree})
+        if path == "/api/suggest":
+            # 스코프 연동 추천 질문(정적 조회, 검색 호출 없음) — 검증된 질문뱅크에서.
+            qs = urllib.parse.parse_qs(parsed.query)
+            scope = [s.strip() for s in qs.get("scope", [""])[0].split(">") if s.strip()] or None
+            try:
+                n = min(16, max(1, int(qs.get("n", ["8"])[0])))
+            except ValueError:
+                n = 8
+            try:
+                seed = int(qs.get("seed", ["0"])[0])
+            except ValueError:
+                seed = 0
+            questions, total = suggest_pick(scope, n, seed)
+            return self._json({"questions": questions, "total": total})
         if path == "/api/meta":
             return self._json({**_meta, "count": len(_chunks),
                                "samples": _samples,
@@ -407,55 +579,55 @@ class Handler(BaseHTTPRequestHandler):
                                         "tau_rerank": _gate["tau_rerank"],
                                         "tau_cos": _gate["tau_cos"]}})
         if path == "/api/search":
-            qs = urllib.parse.parse_qs(parsed.query)
-            q = (qs.get("q", [""])[0]).strip()
-            if not q:
-                return self._json({"error": "empty query"}, 400)
-            alpha = float(qs.get("alpha", ["0.5"])[0])
-            topk = int(qs.get("topk", ["5"])[0])
-            tau = qs.get("tau", [None])[0]
-            tau = float(tau) if tau not in (None, "") else None
-            t = qs.get("types", [""])[0]
-            types = set(x for x in t.split(",") if x) or None
-            use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
-            scope = [s.strip() for s in qs.get("scope", [""])[0].split(">") if s.strip()] or None
-            t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau, use_rr, scope)
-            ms = round((time.perf_counter() - t0) * 1000, 1)
-            return self._json({"query": q, "alpha": alpha, "topk": topk,
-                               "types": sorted(types) if types else [],
-                               "scope": scope or [], "scope_hint": _scope_hint(hits),
-                               "elapsed_ms": ms, "count": len(hits),
-                               "gate": gate, "hits": hits})
+            try:
+                p = parse_query_params(parsed.query)
+            except ValueError as exc:
+                return self._json({"error": str(exc)}, 400)
+            if not _query_slots.acquire(blocking=False):
+                return self._json({"error": "too many concurrent queries"}, 429)
+            try:
+                t0 = time.perf_counter()
+                hits, gate = search(p.q, p.alpha, p.topk, p.types, p.tau,
+                                    p.use_rerank, p.scope)
+                ms = round((time.perf_counter() - t0) * 1000, 1)
+                return self._json({"query": p.q, "alpha": p.alpha, "topk": p.topk,
+                                   "types": sorted(p.types) if p.types else [],
+                                   "scope": p.scope or [], "scope_hint": _scope_hint(hits),
+                                   "elapsed_ms": ms, "count": len(hits),
+                                   "gate": gate, "hits": hits})
+            finally:
+                _query_slots.release()
         if path == "/api/answer":
-            qs = urllib.parse.parse_qs(parsed.query)
-            q = (qs.get("q", [""])[0]).strip()
-            if not q:
-                return self._json({"error": "empty query"}, 400)
-            alpha = float(qs.get("alpha", ["0.5"])[0])
-            topk = int(qs.get("topk", ["5"])[0])
-            tau = qs.get("tau", [None])[0]
-            tau = float(tau) if tau not in (None, "") else None
-            t = qs.get("types", [""])[0]
-            types = set(x for x in t.split(",") if x) or None
-            use_rr = qs.get("rerank", ["1"])[0] not in ("0", "false", "off")
-            scope = [s.strip() for s in qs.get("scope", [""])[0].split(">") if s.strip()] or None
-            t0 = time.perf_counter()
-            hits, gate = search(q, alpha, topk, types, tau, use_rr, scope)
-            search_ms = round((time.perf_counter() - t0) * 1000, 1)
-            t1 = time.perf_counter()
-            # 게이트: 전부 저신뢰면 LLM 호출 없이 '확인되지 않음' (할루시네이션 차단)
-            if gate["all_low"]:
-                ans = {"answer": "매뉴얼에서 확인되지 않습니다. (관련도가 임계치 미만 — 아래 근거는 참고용)",
-                       "used_llm": False, "backend": "gated"}
-            else:
-                ans = answer(q, [h for h in hits if not h["low_conf"]] or hits)
-            gen_ms = round((time.perf_counter() - t1) * 1000, 1)
-            return self._json({"query": q, "alpha": alpha, "topk": topk,
-                               "types": sorted(types) if types else [],
-                               "scope": scope or [], "scope_hint": _scope_hint(hits),
-                               "search_ms": search_ms, "gen_ms": gen_ms,
-                               "count": len(hits), "gate": gate, "hits": hits, **ans})
+            try:
+                p = parse_query_params(parsed.query)
+            except ValueError as exc:
+                return self._json({"error": str(exc)}, 400)
+            if not _query_slots.acquire(blocking=False):
+                return self._json({"error": "too many concurrent queries"}, 429)
+            try:
+                t0 = time.perf_counter()
+                hits, gate = search(p.q, p.alpha, p.topk, p.types, p.tau,
+                                    p.use_rerank, p.scope)
+                search_ms = round((time.perf_counter() - t0) * 1000, 1)
+                t1 = time.perf_counter()
+                if gate["all_low"]:
+                    ans = {"answer": "매뉴얼에서 확인되지 않습니다. "
+                                     "(관련도가 임계치 미만 — 아래 근거는 참고용)",
+                           "used_llm": False, "backend": "gated"}
+                else:
+                    ans = answer(p.q, [h for h in hits if not h["low_conf"]] or hits)
+                gen_ms = round((time.perf_counter() - t1) * 1000, 1)
+                related = related_questions(p.q, hits)
+                if p.src == "chip":
+                    track_chip(p.q, not gate["all_low"])
+                return self._json({"query": p.q, "alpha": p.alpha, "topk": p.topk,
+                                   "types": sorted(p.types) if p.types else [],
+                                   "scope": p.scope or [], "scope_hint": _scope_hint(hits),
+                                   "search_ms": search_ms, "gen_ms": gen_ms,
+                                   "count": len(hits), "gate": gate, "hits": hits,
+                                   "related": related, **ans})
+            finally:
+                _query_slots.release()
         return self._send(404, b"not found", "text/plain; charset=utf-8")
 
 
