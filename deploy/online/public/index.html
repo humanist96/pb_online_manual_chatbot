@@ -4,7 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>PB 매뉴얼 데스크 · PowerBASE 온라인</title>
-<link rel="stylesheet" href="/styles.css?v=2" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/styles.css?v=10" />
 </head>
 <body class="is-empty">
 
@@ -44,6 +45,18 @@
 
   <div class="top-right">
     <span class="index-chip mono" id="index-chip" title="인덱스 정보">인덱스 로딩 중</span>
+    <button class="fb-open-btn" id="fb-open" title="사용자 피드백 — 버그·품질·매뉴얼 보강 등록/조회" hidden>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 3h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 3v-3H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"
+          stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <span>피드백</span></button>
+    <button class="help-open-btn" id="help-open" aria-label="사용 안내·도움말" title="사용 안내·도움말">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M6.3 6.1a1.7 1.7 0 1 1 2.4 1.6c-.5.3-.7.6-.7 1.1v.3" stroke="currentColor"
+          stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="8" cy="11.4" r=".85" fill="currentColor"/></svg>
+    </button>
     <button class="qa-toggle" id="qa-toggle" aria-pressed="false" title="품질 모드 전환 (Q)">QA</button>
   </div>
 </header>
@@ -64,6 +77,9 @@
         <h2>PowerBASE 매뉴얼,<br/>무엇이든 물어보세요</h2>
         <p>답은 항상 매뉴얼 근거와 함께 드려요.</p>
         <div class="chips" id="samples"></div>
+        <button type="button" class="more-q" id="suggest-more" hidden>
+          <span class="ico" aria-hidden="true">↻</span> 다른 질문 보기</button>
+        <button type="button" class="hero-guide" id="hero-guide">처음이신가요? 사용법 보기 →</button>
       </section>
       <div class="thread" id="thread"></div>
     </div>
@@ -81,7 +97,7 @@
       <form class="composer" id="composer">
         <button type="button" class="scope-chip" id="scope-chip" aria-haspopup="true"
           title="질문 범위(브레드크럼) 선택 — 다른 부문 결과가 섞이지 않게 좁혀요">범위: 전체 ▾</button>
-        <textarea id="q" rows="1" placeholder="매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
+        <textarea id="q" rows="1" placeholder="개인정보 없이 공개 합성 매뉴얼에 대해 물어보세요" aria-label="질문 입력" enterkeyhint="send"></textarea>
         <button type="button" class="precise" id="precise" aria-pressed="true" hidden
           title="정밀 게이트(리랭커) — 켜면 관련도 판정이 정확(질문당 +10초 내외), 끄면 빠른 코사인 판정">정밀</button>
         <button class="ask" id="ask" type="submit">질문하기</button>
@@ -126,6 +142,111 @@
 
 <div class="scrim" id="scrim" hidden></div>
 
-<script src="/app.js?v=2"></script>
+<!-- ═══ 사용자 피드백 ═══ -->
+<div class="fb-scrim" id="fb-scrim" hidden></div>
+<div class="fb-modal" id="fb-modal" role="dialog" aria-modal="true" aria-labelledby="fb-title" hidden>
+  <header class="fb-head">
+    <h2 id="fb-title">사용자 피드백</h2>
+    <div class="fb-tabs" role="tablist">
+      <button type="button" class="fb-tab on" data-tab="write" role="tab">남기기</button>
+      <button type="button" class="fb-tab" data-tab="board" role="tab">둘러보기</button>
+      <button type="button" class="fb-tab" data-tab="stats" role="tab">통계</button>
+    </div>
+    <button type="button" class="fb-admin-btn" id="fb-admin-btn" hidden>🔑 관리자</button>
+    <button type="button" class="fb-x" id="fb-close" aria-label="닫기">✕</button>
+  </header>
+
+  <div class="fb-body">
+    <!-- 남기기 -->
+    <section class="fb-pane" id="fb-write" role="tabpanel">
+      <form id="fb-form" autocomplete="off">
+        <label class="fb-l">어떤 종류의 피드백인가요?</label>
+        <div class="fb-types" id="fb-types"></div>
+        <div class="fb-guide" id="fb-guide"></div>
+
+        <label class="fb-l" for="fb-content">내용</label>
+        <textarea id="fb-content" rows="5" maxlength="1000"
+          placeholder="구체적으로 적어주실수록 빠르게 반영돼요"></textarea>
+        <div class="fb-count">
+          <span class="fb-soft" id="fb-hint"></span>
+          <span class="mono" id="fb-len">0/1000</span>
+        </div>
+
+        <div id="fb-image-field" hidden>
+          <label class="fb-l">화면 캡처 <span class="fb-opt">(선택 · 최대 3장)</span></label>
+          <div class="fb-attach">
+            <div class="fb-thumbs" id="fb-thumbs"></div>
+            <button type="button" class="fb-drop" id="fb-drop">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M3 14v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2M10 3v10M10 3 6 7M10 3l4 4"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>캡처를 <b>붙여넣기(Ctrl+V)</b> · 클릭해 선택 · 드래그</span>
+            </button>
+            <input type="file" id="fb-file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden />
+          </div>
+        </div>
+
+        <label class="fb-l" for="fb-nick">닉네임 <span class="fb-opt">(선택)</span></label>
+        <input id="fb-nick" maxlength="20" placeholder="익명" />
+
+        <div class="fb-ctx" id="fb-ctx" hidden></div>
+
+        <!-- honeypot: 사람 눈엔 안 보이고 봇만 채운다 -->
+        <input type="text" id="fb-website" class="fb-hp" tabindex="-1" autocomplete="off"
+          aria-hidden="true" />
+
+        <p class="fb-warn">⚠ 개인정보·실계좌번호 등 민감정보는 적지 마세요. 남긴 내용은 담당자가 열람합니다.</p>
+        <div class="fb-actions">
+          <button type="button" class="fb-cancel" id="fb-cancel">취소</button>
+          <button type="submit" class="fb-submit" id="fb-submit">등록하기</button>
+        </div>
+        <p class="fb-msg" id="fb-msg" hidden></p>
+      </form>
+    </section>
+
+    <!-- 둘러보기 -->
+    <section class="fb-pane" id="fb-board" role="tabpanel" hidden>
+      <div class="fb-filter" id="fb-filter"></div>
+      <div class="fb-list" id="fb-list"></div>
+      <p class="fb-empty" id="fb-empty" hidden>아직 등록된 피드백이 없어요. 첫 피드백을 남겨보세요.</p>
+      <button type="button" class="fb-more" id="fb-more" hidden>더 보기</button>
+    </section>
+
+    <!-- 통계 -->
+    <section class="fb-pane" id="fb-stats" role="tabpanel" hidden>
+      <div class="fb-dash" id="fb-dash"></div>
+    </section>
+  </div>
+</div>
+<div class="fb-lightbox" id="fb-lightbox" hidden><img id="fb-lightbox-img" alt="첨부 이미지 크게 보기" /></div>
+
+<!-- ═══ 온보딩·도움말 ═══ -->
+<div class="ob-scrim" id="ob-scrim" hidden></div>
+<div class="ob-modal" id="ob-modal" role="dialog" aria-modal="true" aria-label="사용 안내" hidden>
+  <button type="button" class="ob-x" id="ob-close" aria-label="닫기">✕</button>
+  <!-- 최초 방문 환영 캐러셀 -->
+  <section class="ob-view" id="ob-welcome" hidden>
+    <div class="ob-track" id="ob-track"></div>
+    <div class="ob-foot">
+      <button type="button" class="ob-skip" id="ob-skip">건너뛰기</button>
+      <div class="ob-dots" id="ob-dots" aria-hidden="true"></div>
+      <div class="ob-nav">
+        <button type="button" class="ob-prev" id="ob-prev">이전</button>
+        <button type="button" class="ob-next" id="ob-next">다음</button>
+      </div>
+    </div>
+    <button type="button" class="ob-tour-cta" id="ob-tour" hidden>🧭 화면에서 자세히 둘러보기 →</button>
+  </section>
+  <!-- 상시 도움말(탭) -->
+  <section class="ob-view" id="ob-help" hidden>
+    <h2 class="ob-help-title">사용 안내</h2>
+    <button type="button" class="ob-tour-cta compact" id="ob-help-tour" hidden>🧭 화면 둘러보기</button>
+    <div class="ob-tabs" id="ob-tabs" role="tablist"></div>
+    <div class="ob-help-body" id="ob-help-body"></div>
+  </section>
+</div>
+<div class="qa-coach" id="qa-coach" hidden></div>
+
+<script src="/app.js?v=13"></script>
 </body>
 </html>

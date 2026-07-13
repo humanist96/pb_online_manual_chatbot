@@ -4,14 +4,14 @@ _sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))  # Vercel: 형제 
 
 from http.server import BaseHTTPRequestHandler
 
-from _common import authorized, META, send_json
+from _common import authorized, public_meta, send_json
 
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not authorized(self):
             return send_json(self, {"error": "unauthorized"}, 401)
-        send_json(self, META)
+        send_json(self, public_meta())
 
     def log_message(self, *a):
         pass

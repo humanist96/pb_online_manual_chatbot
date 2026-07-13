@@ -1,10 +1,18 @@
 # 자격증명·로컬 상태·원본 데이터 — 배포 번들 제외
-.env.local
+.env*
+**/.env*
+**/*.xls
+**/*.xlsx
 .ingest_state
 demo_data/
 gen_demo_data.py
+gen_questions.py
 ingest.py
 ingest_real.py
+export_feedback.py
+parse_counsel_xls.py
+gen_toc_chunks.py
+ab_eval/
 resume_ingest.sh
 README.md
 __pycache__/
