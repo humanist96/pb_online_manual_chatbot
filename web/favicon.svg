@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28" fill="none">
+  <defs>
+    <linearGradient id="kAI" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9a3d"/><stop offset="1" stop-color="#e4670a"/>
+    </linearGradient>
+    <linearGradient id="kSteel" x1="28" y1="28" x2="6" y2="6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#20242b" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#20242b" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kAI)"/>
+  <rect x=".5" y=".5" width="27" height="27" rx="8.5" fill="url(#kSteel)"/>
+  <rect x="1.6" y="1.6" width="24.8" height="12" rx="7.4" fill="#fff" opacity=".10"/>
+  <path d="M14 5.6C14.7 10.5 15.9 11.7 21.4 13C15.9 14.3 14.7 15.5 14 20.4
+        C13.3 15.5 12.1 14.3 6.6 13C12.1 11.7 13.3 10.5 14 5.6Z" fill="#fff"/>
+  <path d="M21.4 18.2C21.6 20 22 20.4 23.6 20.7C22 21 21.6 21.4 21.4 23.2
+        C21.2 21.4 20.8 21 19.2 20.7C20.8 20.4 21.2 20 21.4 18.2Z" fill="#fff" opacity=".85"/>
+</svg>

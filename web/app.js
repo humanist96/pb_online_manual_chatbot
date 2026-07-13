@@ -26,7 +26,10 @@ const S = {
   sectorTree: null,    // /api/sectors 캐시
   alpha: 0.5, topk: 5, tau: 0.5, gateMode: "cosine",
   types: new Set(Object.keys(TYPES)),
-  samples: [],
+  samples: [],        // 예상 질문 후보 [{q,sid,t}] — /api/suggest 로 채움
+  metaSamples: [],    // /api/meta 의 samples(문자열) — suggest 실패 시 폴백 원본
+  suggestSeed: null,  // 다양성 시드 ("다른 질문 보기"로 교체)
+  suggestBusy: false, // suggest 로딩 중복 방지
   sessions: [],       // [{id,title,ts,turns:[]}] — localStorage 영속
   cur: null,          // 현재 세션 id
   turns: [],          // 현재 세션 turns 참조
@@ -45,6 +48,9 @@ function loadStore() {
     S.qa = !!d.qa;
     S.rerank = d.rerank !== false;
     S.scope = Array.isArray(d.scope) ? d.scope : [];
+    // 확장(화면/업무 루트) 이전에 저장된 구형 스코프 마이그레이션 — 당시엔 화면매뉴얼뿐이었다
+    if (S.scope.length && S.scope[0] !== "화면" && S.scope[0] !== "업무")
+      S.scope = ["화면", ...S.scope];
     if (d.navClosed) document.body.classList.add("nav-closed");
     // 중단된 턴은 오류로 정리
     for (const ss of S.sessions)
@@ -67,7 +73,7 @@ function saveStore() {
 const trimHits = hits => (hits || []).map(h => ({
   rank: h.rank, chunk_type: h.chunk_type, section_path: h.section_path,
   sector: h.sector, sector_path: h.sector_path, manual: h.manual,
-  text: h.text, screen_id: h.screen_id, screen_no: h.screen_no,
+  text: h.text, screen_id: h.screen_id, screen_no: h.screen_no, title: h.title,
   source_url: h.source_url, confidence: h.confidence, low_conf: h.low_conf,
   dense: h.dense, sparse: h.sparse, cos: h.cos,
 }));
@@ -144,7 +150,7 @@ function modePill(turn) {
 function srcStrip(turn) {
   if (!turn.hits?.length) return "";
   const chips = turn.hits.map((h, i) => {
-    const leaf = (h.section_path || []).slice(-1)[0] || h.screen_id;
+    const leaf = (h.section_path || []).slice(-1)[0] || h.screen_no || h.title || "";
     return `<button type="button" class="src-chip" data-r="${h.rank}" style="--i:${i}" title="${esc(leaf)}">
       <span class="sn">S${h.rank}</span><span class="sl">${esc(leaf)}</span></button>`;
   }).join("");
@@ -162,22 +168,41 @@ function turnFoot(turn) {
     ${modePill(turn)}<span class="a-meta">${esc(meta)}</span>
   </footer>`;
 }
+/* 예상·관련 질문 말풍선 1개. item 은 {q,sid,t} 또는 문자열(폴백) 모두 허용.
+   data-q 에 질문 원문(esc), title 에 출처 화면(t), --i 는 순차 등장 스태거. */
+function bubbleChip(item, i, left) {
+  const q = typeof item === "string" ? item : (item.q || "");
+  const t = typeof item === "string" ? "" : (item.t || "");
+  return `<button type="button" class="chip ask-chip q-bubble${left ? " left" : ""}"
+    data-q="${esc(q)}" style="--i:${i}"${t ? ` title="${esc(t)}"` : ""}>${esc(q)}</button>`;
+}
 function followups(turn) {
   const isLast = S.turns.length && S.turns[S.turns.length - 1].id === turn.id;
-  if (!isLast || turn.state !== "done") return "";
+  if (!isLast || turn.state !== "done") return "";   // 마지막 done 턴에만 (기존 정책 유지)
   const asked = new Set(S.turns.map(t => t.q));
-  let qs = (turn.hits || []).filter(h => h.chunk_type === "qa")
-    .map(h => (h.section_path || []).slice(-1)[0])
-    .filter(q => q && q.endsWith("?") && q.length <= 60 && !asked.has(q));
-  qs = [...new Set(qs)].slice(0, 2);
-  for (const sm of S.samples) {
-    if (qs.length >= 2) break;
-    if (!asked.has(sm) && !qs.includes(sm)) qs.push(sm);
+  const items = [], seen = new Set();
+  const push = (q, t) => {
+    q = (q || "").trim();
+    if (!q || asked.has(q) || seen.has(q)) return;
+    seen.add(q); items.push({ q, t });
+  };
+  // ① 이번 답변 근거 기반 관련 질문 우선 (최대 3, 세션에서 이미 물은 질문 제외)
+  for (const r of (turn.related || [])) { if (items.length >= 3) break; push(r.q, r.t); }
+  // ② 부족하면 근거 hits 의 qa 청크 질문으로 보충
+  for (const h of (turn.hits || [])) {
+    if (items.length >= 3) break;
+    if (h.chunk_type !== "qa") continue;
+    const q = (h.section_path || []).slice(-1)[0];
+    if (q && q.endsWith("?") && q.length <= 60) push(q, h.screen_no || h.title || "");
   }
-  if (!qs.length) return "";
-  return `<div class="followups"><p class="fl">이런 질문은 어떠세요?</p>
-    <div class="chips">${qs.map(q =>
-      `<button type="button" class="chip ask-chip">${esc(q)}</button>`).join("")}</div></div>`;
+  // ③ 그래도 최소 2개 못 채우면 예상 질문(samples)으로 보충
+  for (const sm of S.samples) {
+    if (items.length >= 2) break;
+    push(typeof sm === "string" ? sm : sm.q, typeof sm === "string" ? "" : sm.t);
+  }
+  if (!items.length) return "";
+  return `<div class="followups"><p class="fl">이어서 물어볼 만한 질문이에요</p>
+    <div class="chips">${items.map((it, i) => bubbleChip(it, i, true)).join("")}</div></div>`;
 }
 function turnBody(turn) {
   switch (turn.state) {
@@ -188,21 +213,30 @@ function turnBody(turn) {
       return `${srcStrip(turn)}
         <div class="a-status"><span class="spin"></span>근거 ${turn.hits.length}건 확보 · 답변 작성 중…</div>
         <div class="skel-box"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>`;
-    case "gated":
+    case "gated": {
+      // 근거 기반 우회 질문(related) 우선, 없으면 예상 질문(samples) 폴백
+      const gq = (turn.related && turn.related.length)
+        ? turn.related.slice(0, 3) : S.samples.slice(0, 3);
       return `<div class="a-gated">
           <h3>매뉴얼에서 확인되지 않았어요</h3>
           <p>계좌 매뉴얼 안에서 이 질문의 근거를 찾지 못했어요.
              화면 이름이나 용어를 넣어 질문을 바꿔보시겠어요? 오른쪽 근거는 참고용이에요.</p>
-          <div class="chips">${S.samples.slice(0, 3).map(q =>
-            `<button type="button" class="chip ask-chip">${esc(q)}</button>`).join("")}</div>
+          <div class="chips">${gq.map((it, i) => bubbleChip(it, i, true)).join("")}</div>
         </div>${turnFoot(turn)}`;
+    }
     case "error":
       return `<div class="a-error"><b>서버에 연결할 수 없어요</b> — webapp.py 실행을 확인해 주세요.
         <button type="button" class="retry act-regen">다시 시도</button></div>`;
-    default: // done
-      return `${srcStrip(turn)}
+    default: { // done
+      // 범위가 걸린 채 근거 0건 — 구형/과협소 스코프 안내 배너로 막다른 골목 방지
+      const unscope = (turn.scope?.length && !(turn.hits || []).length)
+        ? `<div class="scope-banner" role="status">
+            <span class="sb-t">선택한 범위(${esc(turn.scope.join(" › "))})에서 근거를 찾지 못했어요.</span>
+            <button type="button" class="sb-chip sb-unscope" data-q="${esc(turn.q)}">전체 범위로 다시 검색</button></div>` : "";
+      return `${unscope}${srcStrip(turn)}
         <div class="a-body">${mdlite(turn.answer || "")}</div>
         ${turnFoot(turn)}`;
+    }
   }
 }
 function scopeBanner(turn) {
@@ -344,8 +378,8 @@ function evCard(h, q) {
       <div class="mrow"><span class="ml">sparse</span><span class="mtrack"><i class="mfill sparse" style="width:${Math.round((h.sparse || 0) * 100)}%"></i></span><span class="mv">${(h.sparse ?? 0).toFixed(2)}</span></div>
     </div>
     <div class="evc-foot">
-      <button type="button" class="ticker" data-copy="${esc(h.screen_id)}" title="화면 코드 복사">${esc(h.screen_id)}</button>
-      <span class="no mono">[${esc(h.screen_no)}]</span>
+      ${h.screen_no
+        ? `<button type="button" class="ticker" data-copy="${esc(h.screen_no)}" title="화면번호 복사 — 단말 입력용">화면 ${esc(h.screen_no)}</button>` : ""}
       <a href="${esc(h.source_url)}" target="_blank" rel="noopener">원문 매뉴얼 ↗</a>
     </div>
   </article>`;
@@ -468,7 +502,8 @@ function syncTau(gate) {
   $("#tau").value = S.tau; $("#tau-v").textContent = S.tau.toFixed(2);
   $("#qa-gatemode").textContent = "게이트: " + (gate.mode === "rerank" ? "리랭커" : "코사인");
 }
-async function ask(q) {
+async function ask(q, opts) {
+  opts = opts || {};
   q = (q || "").trim();
   if (!q || S.busy) return;
   S.busy = true;
@@ -498,11 +533,13 @@ async function ask(q) {
     turn.state = "writing";
     updateTurn(turn); renderEvidence(turn); scrollBottom();
 
-    const a = await getJSON("/api/answer?" + params);           // 2단: 답변
+    // 말풍선에서 시작된 질문만 &src=chip (계측용) — /api/search 에는 붙이지 않음
+    const a = await getJSON("/api/answer?" + params + (opts.src === "chip" ? "&src=chip" : ""));  // 2단: 답변
     Object.assign(turn, {
       hits: trimHits(a.hits), gate: a.gate, answer: a.answer,
       backend: a.backend, used_llm: a.used_llm, scope_hint: a.scope_hint,
       search_ms: a.search_ms, gen_ms: a.gen_ms,
+      related: Array.isArray(a.related) ? a.related : [],   // 관련 질문 말풍선 재료
     });
     turn.state = (a.backend === "gated" || a.gate?.all_low) ? "gated" : "done";
   } catch {
@@ -576,6 +613,8 @@ document.addEventListener("click", e => {
     ask(sbScope.dataset.q);
     return;
   }
+  const sbUn = e.target.closest(".sb-unscope");
+  if (sbUn) { setScope([]); ask(sbUn.dataset.q); return; }
   const sbKeep = e.target.closest(".sb-keep");
   if (sbKeep) {
     const t = S.turns.find(x => x.id === sbKeep.closest(".turn")?.dataset.turn);
@@ -596,7 +635,7 @@ document.addEventListener("click", e => {
     return;
   }
   const chip = e.target.closest(".ask-chip");
-  if (chip) { ask(chip.textContent); return; }
+  if (chip) { ask(chip.dataset.q || chip.textContent, { src: "chip" }); return; }
   const more = e.target.closest(".more");
   if (more) {
     const txt = more.previousElementSibling;
@@ -679,6 +718,7 @@ function renderScopeChip() {
 function setScope(segs) {
   S.scope = segs || [];
   renderScopeChip(); saveStore();
+  loadSuggest(false);   // 스코프 연동 예상 질문 갱신 (같은 시드 유지)
 }
 async function ensureSectors() {
   if (S.sectorTree) return S.sectorTree;
@@ -691,7 +731,7 @@ function renderScopePanel() {
   $("#sp-cur").textContent = S.scope.length ? S.scope.join(" › ") : "전체";
   const cols = [];
   let parent = { children: S.sectorTree || [], screens: [] };
-  for (let level = 0; parent && cols.length < 4; level++) {
+  for (let level = 0; parent && cols.length < 8; level++) {
     const sel = S.scope[level];
     const books = (parent.children || []).map(n => {
       const path = [...S.scope.slice(0, level), n.name];
@@ -704,7 +744,7 @@ function renderScopePanel() {
       const path = [...S.scope.slice(0, level), s.id];
       return `<button type="button" class="sp-item${s.id === sel ? " on" : ""}"
         data-path="${esc(JSON.stringify(path))}">
-        <span class="n">${esc(s.title)}</span><span class="c">${esc(s.id)}</span></button>`;
+        <span class="n">${esc(s.title)}</span>${s.no ? `<span class="c">${esc(s.no)}</span>` : ""}</button>`;
     }).join("");
     if (!books && !screens) break;
     cols.push(`<div class="sp-col">${books}${screens}</div>`);
@@ -799,11 +839,37 @@ $("#topk").addEventListener("change", e => {
   }
 })();
 
-/* ═══════════════ 부트 ═══════════════ */
+/* ═══════════════ 예상 질문 (스코프 연동) ═══════════════ */
 function renderSamples() {
-  $("#samples").innerHTML = S.samples.slice(0, 4).map(q =>
-    `<button type="button" class="chip ask-chip">${esc(q)}</button>`).join("");
+  $("#samples").innerHTML = S.samples.slice(0, 4)
+    .map((it, i) => bubbleChip(it, i, false)).join("");
+  const more = $("#suggest-more");
+  if (more) more.hidden = !S.samples.length;   // 후보가 있을 때만 셔플 버튼 노출
 }
+/* /api/suggest 로 스코프 연동 예상 질문 로드. reshuffle=true 면 시드를 바꿔 다른 조합.
+   실패·빈 응답 시 META.samples(문자열)를 {q} 로 감싸 폴백. */
+async function loadSuggest(reshuffle) {
+  if (S.suggestBusy) return;                    // 로딩 중 중복 클릭 방지
+  S.suggestBusy = true;
+  if (reshuffle || S.suggestSeed == null) S.suggestSeed = Math.floor(Math.random() * 1e6);
+  const more = $("#suggest-more");
+  if (more && reshuffle) more.classList.add("spin-once");
+  const p = new URLSearchParams({ scope: S.scope.join(">"), n: 8, seed: S.suggestSeed });
+  try {
+    const d = await getJSON("/api/suggest?" + p);
+    const qs = Array.isArray(d.questions) ? d.questions : [];
+    S.samples = qs.length ? qs : (S.metaSamples || []).map(q => ({ q }));
+  } catch {
+    S.samples = (S.metaSamples || []).map(q => ({ q }));
+  } finally {
+    S.suggestBusy = false;
+    if (more) more.classList.remove("spin-once");
+  }
+  renderSamples();
+}
+$("#suggest-more").addEventListener("click", () => loadSuggest(true));
+
+/* ═══════════════ 부트 ═══════════════ */
 loadStore();
 if (new URLSearchParams(location.search).get("qa") === "1") S.qa = true;
 setQa(S.qa);
@@ -825,8 +891,8 @@ fetch("/api/meta").then(r => r.json()).then(m => {
   } else {
     S.rerank = false;   // 리랭커 미설치 — 토글 숨김, 항상 코사인
   }
-  S.samples = m.samples || [];
-  renderSamples();
+  S.metaSamples = m.samples || [];   // suggest 실패 시 폴백 원본
+  loadSuggest(false);                // 스코프 연동 예상 질문 비동기 로드
   // 딥링크: /?q=질문 → 자동 질의 (게이트 기본값 로딩 후 실행)
   const initQ = new URLSearchParams(location.search).get("q");
   if (initQ && !S.busy) ask(initQ);

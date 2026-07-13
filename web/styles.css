@@ -256,6 +256,34 @@ body.is-empty .dock::before{display:none}
 .followups .fl{font-size:12px; color:var(--dim); margin:0 0 7px}
 .followups .chips{justify-content:flex-start}
 
+/* ── 예상·관련 질문 말풍선 ── */
+/* .chip 위에 채팅 버블 변형: 한쪽 모서리만 덜 둥글게(꼬리 느낌) + 순차 pop-in + hover 부상 */
+.q-bubble{
+  border-radius:15px 15px 15px 5px;                 /* 왼쪽-아래 꼬리 */
+  border-color:var(--brand-line); background:var(--brand-tint); color:var(--brand-text);
+  animation:qpop .34s cubic-bezier(.2,.8,.3,1.05) both;
+  animation-delay:calc(var(--i,0)*70ms);
+  transition:transform .14s, box-shadow .14s, border-color .14s, background .14s;
+}
+.q-bubble.left{border-radius:5px 15px 15px 15px}    /* followups·gated — 답변에서 이어지는 왼쪽 꼬리 */
+.q-bubble:hover{
+  transform:translateY(-2px);
+  border-color:var(--brand); background:var(--surface);
+  box-shadow:0 6px 16px -8px var(--brand-deep);
+}
+@keyframes qpop{from{opacity:0; transform:translateY(8px) scale(.96)} to{opacity:1; transform:none}}
+
+/* "다른 질문 보기" — 보조(무채색) 버튼, 말풍선과 구분 */
+.more-q{
+  margin-top:14px; display:inline-flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:100px; border:1px dashed var(--line-2);
+  background:var(--surface); color:var(--dim); font-size:12.5px; font-weight:600;
+  transition:color .12s, border-color .12s;
+}
+.more-q:hover{color:var(--ink-2); border-color:var(--steel-2)}
+.more-q .ico{display:inline-block; font-size:13px; line-height:1}
+.more-q.spin-once .ico{animation:spin .5s linear}
+
 /* ── 컴포저 독 ── */
 .dock{flex:0 0 auto; padding:6px 24px 12px; position:relative}
 .dock::before{
@@ -300,8 +328,8 @@ body.is-empty .dock::before{display:none}
 .sp-all:hover{color:var(--ink-2); border-color:var(--steel-2)}
 .sp-close{width:26px; height:26px; border-radius:7px; color:var(--dim)}
 .sp-close:hover{background:var(--mist)}
-.sp-cols{display:flex; max-height:320px}
-.sp-col{flex:1; min-width:0; overflow-y:auto; border-right:1px solid var(--line); padding:6px}
+.sp-cols{display:flex; max-height:320px; overflow-x:auto}
+.sp-col{flex:1 0 auto; min-width:150px; overflow-y:auto; border-right:1px solid var(--line); padding:6px}
 .sp-col:last-child{border-right:0}
 .sp-item{
   display:flex; align-items:center; gap:6px; width:100%; text-align:left;
