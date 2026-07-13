@@ -59,3 +59,6 @@ docs/edu/out/
 
 # AB 평가 작업장(실데이터 파생 질문·결과 포함) — 원격 제외
 deploy/online/ab_eval/
+
+# 보고용 산출물(사내 매뉴얼 내용 포함) — 원격 제외
+presentations/
