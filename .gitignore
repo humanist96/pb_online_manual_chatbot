@@ -6,7 +6,7 @@ __pycache__/
 
 # ── 로컬 설정/도구 ──
 .claude/
-.env
+.env*
 
 # ── 모델·HF 캐시 (재다운로드 가능) ──
 .cache/
@@ -24,6 +24,10 @@ data/index/
 data/*.jsonl
 data/*.json
 data/AC*.json
+
+# 공개 배포에 포함하면 안 되는 원본/실데이터 파생물
+*.xls
+deploy/online/api/_questions*.py
 
 # 수작업 변환 샘플(내부 자료)
 0878_AC250400_지점계좌서비스약정등록내역.pdf
@@ -52,3 +56,6 @@ docs/report/template/PretendardVariable.woff2
 
 # 교육자료 단일본 빌드 산출물 (build_standalone.py 로 재생성)
 docs/edu/out/
+
+# AB 평가 작업장(실데이터 파생 질문·결과 포함) — 원격 제외
+deploy/online/ab_eval/

@@ -6,7 +6,7 @@ help:
 	@echo "install      의존성 설치 (deploy/install.sh)"
 	@echo "build        색인 빌드   (deploy/build.sh, 사내망)"
 	@echo "run          서버 실행   (deploy/run.sh → :8000)"
-	@echo "test         파서 회귀 테스트"
+	@echo "test         파서·보안·공개 데이터 경계 회귀 테스트"
 	@echo "docker-build 이미지 빌드"
 	@echo "docker-up    컨테이너 실행 (data/ 볼륨 필요)"
 	@echo "docker-down  컨테이너 중지"
@@ -24,6 +24,12 @@ run:
 
 test:
 	.venv/bin/python tests/test_parse.py
+	.venv/bin/python tests/test_parse_pm.py
+	.venv/bin/python -m unittest -v \
+		tests.test_online_data_boundary \
+		tests.test_request_validation \
+		tests.test_webapp_security \
+		tests.test_feedback_security
 
 docker-build:
 	docker build -t pb-chatbot:latest .

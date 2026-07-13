@@ -21,7 +21,7 @@ COPY data/account_topics.txt ./data/account_topics.txt
 # 색인/모델 캐시는 볼륨으로 주입 (이미지에 사내 데이터 미포함)
 #   -v $PWD/data:/app/data           (색인)
 #   -v hf-cache:/root/.cache/huggingface  (임베딩 모델 캐시)
-ENV HOST=0.0.0.0 PORT=8000 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+ENV HOST=127.0.0.1 PORT=8000 LLM_BACKEND=none HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \

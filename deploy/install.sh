@@ -51,7 +51,7 @@ cat <<'NEXT'
   1) 색인 생성(사내망 필요):   bash deploy/build.sh
      - 최초 1회 임베딩 모델(~440MB) 다운로드 후 오프라인 동작
   2) 서버 실행:                bash deploy/run.sh
-     → http://<서버IP>:8000
+	     → http://127.0.0.1:8000 (localhost 기본; 외부 공개는 인증 proxy 필수)
 
   systemd 등록(상시 실행)은  deploy/pb-chatbot.service  참조.
 NEXT

@@ -4,7 +4,7 @@
 #     docker compose run --rm chatbot python src/build_index.py     # 청크가 있을 때
 #     또는 호스트에서 deploy/build.sh 로 data/ 준비 후 아래 up
 #
-#   실행:  docker compose up -d          → http://<서버IP>:8000
+#   실행:  docker compose up -d          → http://127.0.0.1:8000
 #   로그:  docker compose logs -f chatbot
 #
 services:
@@ -12,14 +12,17 @@ services:
     build: .
     image: pb-chatbot:latest
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       HOST: "0.0.0.0"
       PORT: "8000"
+      PB_ALLOW_NON_LOOPBACK_BIND: "I_ACKNOWLEDGE_REVERSE_PROXY_AUTH"
+      PB_MAX_CONCURRENT_QUERIES: "2"
+      LLM_BACKEND: "none"
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       # 로컬 LLM(아래 ollama 서비스) 사용 시:
-      # LLM_BACKEND: "ollama"
+      # Ollama로 전환할 때는 위 LLM_BACKEND: "none"을 수정하고 아래를 추가:
       # LLM_MODEL: "qwen2.5:3b-instruct"
       # OLLAMA_HOST: "http://ollama:11434"
     volumes:
