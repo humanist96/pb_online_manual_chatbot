@@ -25,6 +25,9 @@ SRC = ROOT / "data" / "chunks.jsonl"
 SRC_COUNSEL = ROOT / "data" / "chunks_counsel.jsonl"
 # 문서 목차 청크(gen_toc_chunks.py 산출) — 동일한 증분 오프셋 방식으로 뒤에 연결.
 SRC_TOC = ROOT / "data" / "chunks_toc.jsonl"
+# 상담사례(AICC 녹취) 청크(parse_aicc.py 산출) — 리스트 맨 뒤에 연결해 .ingest_state
+# 오프셋 증분이 AICC분만 잡도록(기존·counsel·toc 불변 전제, 상담매뉴얼 온라인추가 선례).
+SRC_AICC = ROOT / "data" / "chunks_aicc.jsonl"
 STATE = HERE / ".ingest_state"
 BATCH = 100
 
@@ -66,6 +69,8 @@ def load_chunks() -> list[dict]:
         out += [json.loads(l) for l in open(SRC_COUNSEL, encoding="utf-8")]
     if SRC_TOC.exists():
         out += [json.loads(l) for l in open(SRC_TOC, encoding="utf-8")]
+    if SRC_AICC.exists():
+        out += [json.loads(l) for l in open(SRC_AICC, encoding="utf-8")]
     return out
 
 
