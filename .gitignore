@@ -29,6 +29,11 @@ data/AC*.json
 *.xls
 deploy/online/api/_questions*.py
 
+# AICC 상담 녹취 원본·정제 산출물 (실명·고객사 포함 실데이터 — 커밋 금지)
+aicc/
+data/aicc_refined/
+data/aicc_pilot_report.html
+
 # 수작업 변환 샘플(내부 자료)
 0878_AC250400_지점계좌서비스약정등록내역.pdf
 0878_AC250400_지점계좌서비스약정등록내역.xlsx

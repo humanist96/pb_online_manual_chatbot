@@ -180,6 +180,7 @@ class PublicSyntheticModeTests(unittest.TestCase):
         self.assertIn(f"schema_version = {common.PUBLIC_SCHEMA_VERSION}", expr)
         self.assertIn(f"corpus_sha256 = '{common.PUBLIC_CORPUS_SHA256}'", expr)
         self.assertIn("source_url = '#demo'", expr)
+        # manual='화면' 고정으로 상담·상담사례(AICC 녹취) 등 여타 manual 값은 필터에서 원천 배제.
         self.assertIn("manual = '화면'", expr)
         self.assertIn("scope_key GLOB '계좌*'", expr)
         self.assertIn("chunk_type = 'qa'", expr)
@@ -230,7 +231,10 @@ class PublicSyntheticModeTests(unittest.TestCase):
             {"corpus_sha256": "0" * 64},
             {"source_url": "https://internal.example/manual"},
             {"manual": "상담"},
+            # AICC 상담 녹취 사례(온라인 전용·실데이터)는 합성 공개모드로 절대 새어나갈 수 없다.
+            {"manual": "상담사례"},
             {"sector_path": ["상담", "계좌"]},
+            {"sector_path": ["상담사례", "계좌"]},
             {"screen_id": "UNKNOWN"},
         ):
             row = {"metadata": {**valid["metadata"], **changed}}
@@ -347,6 +351,13 @@ class PackagingBoundaryTests(unittest.TestCase):
         self.assertIn("data/questions*.json", dockerignore)
         self.assertIn("**/.env*", dockerignore)
         self.assertIn("**/*.xls", dockerignore)
+
+        # AICC 상담 녹취(실명 포함 실데이터) 원본·정제본은 원격/이미지 어디에도 포함 금지.
+        for content in (gitignore, dockerignore):
+            self.assertIn("aicc/", content)
+            self.assertIn("data/aicc_refined/", content)
+        # .dockerignore 는 정제 산출물 캐시(data/aicc_*.json)까지 이미지에서 제외한다.
+        self.assertIn("data/aicc_*.json", dockerignore)
 
         # Vercel 번들은 자격증명·원본만 제외한다. api/_questions*.py 는 여기서 제외하지
         # 않는다 — 실데이터 운영 모드가 런타임에 질문뱅크(_questions.py)를 임포트해

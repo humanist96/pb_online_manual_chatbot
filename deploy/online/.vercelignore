@@ -12,6 +12,12 @@ ingest_real.py
 export_feedback.py
 parse_counsel_xls.py
 gen_toc_chunks.py
+refine_aicc.py
+parse_aicc.py
+build_aicc_lexicon.py
+update_static_aicc.py
+update_questions_aicc.py
+verify_aicc_online.py
 ab_eval/
 resume_ingest.sh
 README.md

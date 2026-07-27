@@ -16,4 +16,7 @@ data/questions*.json
 *.xlsx
 **/*.xlsx
 deploy/online/api/_questions*.py
+aicc/
+data/aicc_refined/
+data/aicc_*.json
 .DS_Store
