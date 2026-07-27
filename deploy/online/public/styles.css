@@ -453,6 +453,7 @@ body.is-empty .dock::before{display:none}
   border-radius:100px; border:1px solid #c7d5e0; background:#eef4f8;
 }
 .m-badge.cs{color:#2f7d63; border-color:#bfdccf; background:#e9f4ef}
+.m-badge.cc{color:#7a4fb5; border-color:#dccdec; background:#f4eefa}
 .low-flag{
   font-size:10px; font-weight:700; color:var(--warn); padding:1px 8px;
   border-radius:100px; border:1px solid #e8d5ad; background:#fdf6e8;

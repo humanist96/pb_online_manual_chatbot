@@ -378,7 +378,8 @@ function evCard(h, q) {
       <span class="t-dot t-${esc(h.chunk_type)}"></span>
       <span class="evc-type">${esc(TYPES[h.chunk_type] || h.chunk_type)}</span>
       ${h.manual === "업무" ? '<span class="m-badge">업무</span>'
-        : h.manual === "상담" ? '<span class="m-badge cs">상담</span>' : ""}
+        : h.manual === "상담" ? '<span class="m-badge cs">상담</span>'
+        : h.manual === "상담사례" ? '<span class="m-badge cc">사례</span>' : ""}
       ${low ? '<span class="low-flag">참고용</span>' : ""}
       <span class="evc-conf mono">${h.confidence != null ? h.confidence.toFixed(2) : ""}</span>
     </div>
@@ -1600,7 +1601,7 @@ const OB_HELP = [
     <p class="ob-p">답이 매뉴얼 어디서 왔는지 트리로 보여줘요. 항목의 <b>‘좁히기’</b>를 누르면 그 경로 안에서만 다시 검색해요.</p>
     <p class="ob-sub">범위(브레드크럼)</p>
     <p class="ob-p">컴포저의 <b>‘범위’</b> 칩으로 부문을 한정하면 다른 부문 결과가 섞이지 않아요.
-    매뉴얼은 <b>화면</b>(조작법)·<b>업무</b>(절차)·<b>상담</b>(고객센터 Q&amp;A 사례) 세 갈래예요 — 범위 첫 단계에서 고를 수 있어요.</p>
+    매뉴얼은 <b>화면</b>(조작법)·<b>업무</b>(절차)·<b>상담</b>(고객센터 Q&amp;A)·<b>상담사례</b>(실제 상담 통화에서 정제한 참고 Q&amp;A) 네 갈래예요 — 범위 첫 단계에서 고를 수 있어요.</p>
     <p class="ob-sub">정밀 / 빠른 검색</p>
     <p class="ob-p"><b>정밀</b>은 리랭커로 관련도를 더 정확히(질문당 몇 초 더), <b>빠른</b>은 즉시 응답이에요.</p>` },
   { k: "qa", ko: "QA 모드", html: OB_QA_HTML },
@@ -1769,7 +1770,7 @@ const TOUR_STEPS = [
       <span class="tour-tip-hint">💡 <kbd>Enter</kbd> 전송 · <kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈 · <kbd>/</kbd> 또는 <kbd>⌘K</kbd>로 입력창 포커스.</span>` },
   { chapter: "이렇게 물어보세요", target: "#scope-chip", placement: "top",
     title: "범위로 좁혀 묻기",
-    html: `부문을 좁히면 <b>다른 업무의 결과가 섞이지 않아</b> 정확도가 올라가요. 매뉴얼은 화면·업무·상담 세 갈래라 첫 단계에서 고를 수 있어요.
+    html: `부문을 좁히면 <b>다른 업무의 결과가 섞이지 않아</b> 정확도가 올라가요. 매뉴얼은 화면·업무·상담·상담사례 네 갈래라 첫 단계에서 고를 수 있어요.
       <span class="tour-tip-hint">💡 답이 여러 부문에 걸치면 배너로 “화면 기준? 업무 기준?”을 먼저 되물어봐요.</span>` },
   { chapter: "이렇게 물어보세요", target: "#samples", placement: "bottom",
     title: "뭘 물을지 막막하면",
