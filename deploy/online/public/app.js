@@ -906,7 +906,8 @@ function renderSamples() {
   if (more) more.hidden = !S.samples.length;   // 후보가 있을 때만 셔플 버튼 노출
 }
 /* /api/suggest 로 스코프 연동 예상 질문 로드. reshuffle=true 면 시드를 바꿔 다른 조합.
-   실패·빈 응답 시 META.samples(문자열)를 {q} 로 감싸 폴백. */
+   실패·빈 응답 시 META.samples(문자열) 폴백은 전체 범위일 때만 — 범위가 걸린 상태에서
+   전역 샘플을 보여주면 클릭 시 그 범위 안 근거 0건 막다른 골목이 된다. */
 async function loadSuggest(reshuffle) {
   if (S.suggestBusy) return;                    // 로딩 중 중복 클릭 방지
   S.suggestBusy = true;
@@ -914,12 +915,13 @@ async function loadSuggest(reshuffle) {
   const more = $("#suggest-more");
   if (more && reshuffle) more.classList.add("spin-once");
   const p = new URLSearchParams({ scope: S.scope.join(">"), n: 8, seed: S.suggestSeed });
+  const fallback = () => (S.scope.length ? [] : (S.metaSamples || []).map(q => ({ q })));
   try {
     const d = await getJSON("/api/suggest?" + p);
     const qs = Array.isArray(d.questions) ? d.questions : [];
-    S.samples = qs.length ? qs : (S.metaSamples || []).map(q => ({ q }));
+    S.samples = qs.length ? qs : fallback();
   } catch {
-    S.samples = (S.metaSamples || []).map(q => ({ q }));
+    S.samples = fallback();
   } finally {
     S.suggestBusy = false;
     if (more) more.classList.remove("spin-once");

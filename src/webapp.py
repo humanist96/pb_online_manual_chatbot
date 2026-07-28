@@ -223,10 +223,13 @@ def suggest_pick(scope: list[str] | None, n: int, seed: int) -> tuple[list[dict]
     return out, len(pool)
 
 
-def related_questions(q: str, hits: list[dict]) -> list[dict]:
+def related_questions(q: str, hits: list[dict],
+                      scope: list[str] | None = None) -> list[dict]:
     """이번 답변의 근거(hit)에서 이어질 질문을 뱅크에서 최대 3개.
     ① hit 화면과 동일 screen_id → ② 동일 부문 → ③ 동일 매뉴얼 순.
-    현재 질문과 동일/포함 관계 및 상호 중복은 제외(막다른 골목 방지로 게이트 턴도 제공)."""
+    현재 질문과 동일/포함 관계 및 상호 중복은 제외(막다른 골목 방지로 게이트 턴도 제공).
+    scope가 걸린 답변이면 그 범위에서 답변 가능한 질문만 추천한다 — 범위 밖
+    질문을 누르면 같은 범위로 재검색되어 근거 0건 막다른 골목이 된다."""
     if not QUESTIONS or not hits:
         return []
     cur = _norm_q(q)
@@ -239,8 +242,19 @@ def related_questions(q: str, hits: list[dict]) -> list[dict]:
     out: list[dict] = []
     seen_q: set[str] = set()
 
+    def in_scope(e: dict) -> bool:
+        # /api/suggest의 _scope_match와 동일 규칙: 질문 경로 = sp + [sid].
+        if not scope:
+            return True
+        path = list(e.get("sp") or []) + [e.get("sid") or ""]
+        if len(scope) > len(path):
+            return False
+        return all(path[i] == s for i, s in enumerate(scope))
+
     def add(entries: list) -> bool:
         for e in entries:
+            if not in_scope(e):
+                continue
             eq = _norm_q(e.get("q", ""))
             if not eq or eq in seen_q:
                 continue
@@ -617,7 +631,7 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     ans = answer(p.q, [h for h in hits if not h["low_conf"]] or hits)
                 gen_ms = round((time.perf_counter() - t1) * 1000, 1)
-                related = related_questions(p.q, hits)
+                related = related_questions(p.q, hits, p.scope)
                 if p.src == "chip":
                     track_chip(p.q, not gate["all_low"])
                 return self._json({"query": p.q, "alpha": p.alpha, "topk": p.topk,

@@ -42,7 +42,7 @@ class handler(BaseHTTPRequestHandler):
                          "scope": scope or [], "scope_hint": scope_hint(hits),
                          "search_ms": search_ms, "gen_ms": gen_ms,
                          "count": len(hits), "gate": gate, "hits": hits,
-                         "related": related_questions(q, hits), **ans})
+                         "related": related_questions(q, hits, scope), **ans})
 
     def log_message(self, *a):
         pass
